@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <ImageView
+        android:id="@+id/bubble_handle"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:background="@drawable/bubble_circle"
+        android:padding="12dp"
+        android:src="@android:drawable/ic_menu_manage"
+        android:contentDescription="Game Space" />
+
+    <LinearLayout
+        android:id="@+id/bubble_panel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical"
+        android:background="@drawable/panel_background"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <Button
+            android:id="@+id/btn_dnd"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Chặn thông báo" />
+
+        <Button
+            android:id="@+id/btn_perf"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Hiệu năng cao" />
+
+        <Button
+            android:id="@+id/btn_battery"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tiết kiệm pin" />
+
+    </LinearLayout>
+
+</LinearLayout>

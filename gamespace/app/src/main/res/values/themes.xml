@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.GameSpace" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#FFCF8B</item>
+        <item name="colorPrimaryDark">#1A1F35</item>
+        <item name="colorAccent">#6BFFCF</item>
+    </style>
+</resources>
