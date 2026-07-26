@@ -62,6 +62,9 @@ class OverlayBubbleService : Service() {
     private var touchLockTopLeft: View? = null
     private var touchLockTopRight: View? = null
 
+    // Tối ưu WiFi — giữ radio ở chế độ độ trễ thấp, tránh tụt ping do tiết kiệm pin
+    private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
+
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -95,15 +98,8 @@ class OverlayBubbleService : Service() {
         var startTouchY = 0f
         var startTabY = 0
         var dragging = false
-        var longPressMode = false
-        val longPressHandler = Handler(Looper.getMainLooper())
-        var longPressTriggered = false
-        val longPressRunnable = Runnable {
-            if (!dragging) {
-                longPressMode = true
-                longPressTriggered = true
-            }
-        }
+        var verticalDrag = false
+        var horizontalDrag = false
 
         view.setOnTouchListener { _, event ->
             when (event.action) {
@@ -112,27 +108,27 @@ class OverlayBubbleService : Service() {
                     startTouchY = event.rawY
                     startTabY = tabParams?.y ?: 260
                     dragging = false
-                    longPressMode = false
-                    longPressTriggered = false
-                    longPressHandler.postDelayed(longPressRunnable, 400)
+                    verticalDrag = false
+                    horizontalDrag = false
                     if (!isPanelOpen) ensurePanelAdded()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - startTouchX
                     val dy = event.rawY - startTouchY
-                    if (!dragging && (abs(dx) > 16 || abs(dy) > 16)) {
+                    if (!dragging && (abs(dx) > 10 || abs(dy) > 10)) {
                         dragging = true
-                        if (!longPressTriggered) longPressHandler.removeCallbacks(longPressRunnable)
+                        // Quyết định hướng kéo NGAY từ lúc vượt ngưỡng, giữ nguyên suốt cử chỉ
+                        if (abs(dy) > abs(dx)) verticalDrag = true else horizontalDrag = true
                     }
-                    if (longPressMode) {
-                        // Nhấn giữ: kéo thanh vuốt lên/xuống theo cạnh màn hình
+                    if (verticalDrag) {
+                        // Kéo lên/xuống: di chuyển thanh vuốt dọc theo cạnh màn hình
                         tabParams?.let {
                             it.y = (startTabY + dy).toInt().coerceIn(0, screenHeightPx - 96)
                             tabView?.let { tv -> windowManager.updateViewLayout(tv, it) }
                         }
-                    } else if (dragging && abs(dx) > abs(dy)) {
-                        // Vuốt ngang: kéo panel theo tay
+                    } else if (horizontalDrag) {
+                        // Kéo ngang: mở/đóng panel theo tay
                         val openX = screenWidthPx - panelWidthPx
                         val hiddenX = screenWidthPx
                         var newX = (hiddenX + dx).toInt()
@@ -146,15 +142,14 @@ class OverlayBubbleService : Service() {
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    longPressHandler.removeCallbacks(longPressRunnable)
                     val dx = event.rawX - startTouchX
-                    if (longPressMode) {
-                        // Vừa kéo xong, không mở/đóng panel
-                    } else if (!dragging) {
-                        togglePanel()
-                    } else {
-                        val openedEnough = dx < -panelWidthPx / 2f
-                        if (openedEnough) snapPanelOpen() else snapPanelClosed()
+                    when {
+                        verticalDrag -> { /* đã di chuyển xong, giữ nguyên vị trí mới */ }
+                        horizontalDrag -> {
+                            val openedEnough = dx < -panelWidthPx / 2f
+                            if (openedEnough) snapPanelOpen() else snapPanelClosed()
+                        }
+                        else -> togglePanel() // chạm nhẹ không kéo: bật/tắt panel
                     }
                     true
                 }
@@ -222,11 +217,21 @@ class OverlayBubbleService : Service() {
             SettingsStore.setCallBlockEnabled(this, enabled)
         }
 
+        setupToggleRow(
+            view.findViewById(R.id.row_wifi),
+            view.findViewById(R.id.wifi_state),
+            SettingsStore.isWifiOptimizeEnabled(this)
+        ) { enabled ->
+            SettingsStore.setWifiOptimizeEnabled(this, enabled)
+            if (enabled) enableWifiOptimization() else disableWifiOptimization()
+        }
+
         populateQuickApps(view)
 
         // Áp dụng lại trạng thái tiện ích đã lưu mỗi lần panel/overlay được tạo lại
         if (SettingsStore.isFpsEnabled(this)) showFpsOverlay()
         if (SettingsStore.isTouchLockEnabled(this)) showTouchLock()
+        if (SettingsStore.isWifiOptimizeEnabled(this)) enableWifiOptimization()
 
         updateProfileHighlight(view)
         windowManager.addView(view, params)
@@ -471,9 +476,35 @@ class OverlayBubbleService : Service() {
         }
     }
 
+    /** Giữ WiFi radio ở chế độ độ trễ thấp (API chính thức Android dành cho game/VoIP),
+     *  tránh việc chip WiFi tự vào chế độ tiết kiệm điện gây tăng ping/giật khi chơi online. */
+    private fun enableWifiOptimization() {
+        if (wifiLock != null) return
+        try {
+            val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+            val mode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                android.net.wifi.WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+            } else {
+                android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF
+            }
+            val lock = wm.createWifiLock(mode, "qspace:wifi_optimize")
+            lock.setReferenceCounted(false)
+            lock.acquire()
+            wifiLock = lock
+        } catch (e: Exception) {
+            Toast.makeText(this, "Không bật được tối ưu WiFi", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun disableWifiOptimization() {
+        wifiLock?.let { if (it.isHeld) it.release() }
+        wifiLock = null
+    }
+
     override fun onDestroy() {
         hideFpsOverlay()
         hideTouchLock()
+        disableWifiOptimization()
         tabView?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }
         panelView?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }
         tabView = null

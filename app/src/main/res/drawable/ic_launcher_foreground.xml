@@ -1,0 +1,36 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Vòng ngoài: gradient amber -> cyan, tạo hình chữ "Q" cách điệu -->
+    <path
+        android:pathData="M54,22 A32,32 0 1,0 54,86 A32,32 0 1,0 54,22 Z M54,32 A22,22 0 1,1 54,76 A22,22 0 1,1 54,32 Z"
+        android:fillType="evenOdd">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="20"
+                android:startY="20"
+                android:endX="88"
+                android:endY="88"
+                android:startColor="#FFB35C"
+                android:endColor="#5CE0D8" />
+        </aapt:attr>
+    </path>
+
+    <!-- Đuôi chữ Q -->
+    <path
+        android:pathData="M70,70 L86,86 L86,86"
+        android:strokeColor="#FFB35C"
+        android:strokeWidth="10"
+        android:strokeLineCap="round" />
+
+    <!-- Chấm tâm -->
+    <path
+        android:pathData="M54,48 A6,6 0 1,0 54,60 A6,6 0 1,0 54,48 Z"
+        android:fillColor="#FFB35C" />
+
+</vector>
