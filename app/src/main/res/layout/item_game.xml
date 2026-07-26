@@ -25,6 +25,19 @@
         android:textStyle="bold" />
 
     <TextView
+        android:id="@+id/btn_play"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/pill_button_amber"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:layout_marginEnd="8dp"
+        android:text="▶ Chơi"
+        android:textColor="#0B0E1A"
+        android:textStyle="bold"
+        android:textSize="12sp" />
+
+    <TextView
         android:id="@+id/btn_remove"
         android:layout_width="36dp"
         android:layout_height="36dp"
