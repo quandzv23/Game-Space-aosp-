@@ -70,12 +70,22 @@ class GameWatcherService : Service() {
         if (isGame && lastPackage != currentGamePackage) {
             currentGamePackage = lastPackage
             PerfProfileManager.applyGameProfile(PerfProfileManager.Profile.PERFORMANCE)
+            showEnterAnimation()
             showBubble()
         } else if (!isGame && currentGamePackage != null) {
             currentGamePackage = null
             PerfProfileManager.restoreDefault()
             hideBubble()
         }
+    }
+
+    private fun showEnterAnimation() {
+        val intent = Intent(this, GameEnterSplashActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_NO_ANIMATION
+        }
+        startActivity(intent)
     }
 
     private fun showBubble() {
@@ -95,11 +105,11 @@ class GameWatcherService : Service() {
         val nm = getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(channelId) == null) {
             nm.createNotificationChannel(
-                NotificationChannel(channelId, "Game Space", NotificationManager.IMPORTANCE_MIN)
+                NotificationChannel(channelId, "Qspace", NotificationManager.IMPORTANCE_MIN)
             )
         }
         return Notification.Builder(this, channelId)
-            .setContentTitle("Game Space đang theo dõi")
+            .setContentTitle("Qspace đang theo dõi")
             .setSmallIcon(android.R.drawable.ic_menu_manage)
             .setOngoing(true)
             .build()

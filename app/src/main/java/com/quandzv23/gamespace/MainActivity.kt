@@ -7,13 +7,17 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Process
 import android.provider.Settings
-import android.widget.ArrayAdapter
-import android.widget.ListView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.topjohnwu.superuser.Shell
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var adapter: GameAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,16 +25,29 @@ class MainActivity : AppCompatActivity() {
 
         ensurePermissions()
 
-        val listView = findViewById<ListView>(R.id.game_list)
-        refreshList(listView)
+        val listView = findViewById<RecyclerView>(R.id.game_list)
+        listView.layoutManager = LinearLayoutManager(this)
+        adapter = GameAdapter(packageManager, GameListStore.getGames(this).toList().sorted()) { pkg ->
+            GameListStore.removeGame(this, pkg)
+            refreshList()
+        }
+        listView.adapter = adapter
 
-        findViewById<android.view.View>(R.id.btn_add_game).setOnClickListener {
-            showInstalledAppsPicker(listView)
+        findViewById<TextView>(R.id.btn_add_game).setOnClickListener {
+            showInstalledAppsPicker()
         }
 
-        findViewById<android.view.View>(R.id.btn_start_service).setOnClickListener {
-            startForegroundService(Intent(this, GameWatcherService::class.java))
-            Toast.makeText(this, "Game Space đang chạy nền", Toast.LENGTH_SHORT).show()
+        val statusText = findViewById<TextView>(R.id.status_text)
+        val switch = findViewById<SwitchCompat>(R.id.switch_service)
+        switch.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                startForegroundService(Intent(this, GameWatcherService::class.java))
+                statusText.text = "Đang theo dõi"
+                Toast.makeText(this, "Qspace đang chạy nền", Toast.LENGTH_SHORT).show()
+            } else {
+                stopService(Intent(this, GameWatcherService::class.java))
+                statusText.text = "Chưa bật theo dõi"
+            }
         }
     }
 
@@ -57,29 +74,28 @@ class MainActivity : AppCompatActivity() {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
-    private fun refreshList(listView: ListView) {
-        val games = GameListStore.getGames(this).toList().sorted()
-        listView.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, games)
-        listView.setOnItemLongClickListener { _, _, position, _ ->
-            GameListStore.removeGame(this, games[position])
-            refreshList(listView)
-            true
-        }
+    private fun refreshList() {
+        adapter.submit(GameListStore.getGames(this).toList().sorted())
     }
 
-    private fun showInstalledAppsPicker(listView: ListView) {
+    private fun showInstalledAppsPicker() {
         val pm = packageManager
-        val apps = pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
+        val apps = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getInstalledApplications(0)
+        }
             .filter { pm.getLaunchIntentForPackage(it.packageName) != null }
             .sortedBy { pm.getApplicationLabel(it).toString() }
 
         val labels = apps.map { "${pm.getApplicationLabel(it)}  (${it.packageName})" }.toTypedArray()
 
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Chọn app để thêm vào Game Space")
+            .setTitle("Chọn app để thêm vào Qspace")
             .setItems(labels) { _, which ->
                 GameListStore.addGame(this, apps[which].packageName)
-                refreshList(listView)
+                refreshList()
             }
             .show()
     }

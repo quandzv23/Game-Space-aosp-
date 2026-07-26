@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_deep">#0B0E1A</color>
+    <color name="bg_card">#161B2E</color>
+    <color name="bg_card_alt">#1E2540</color>
+    <color name="accent_amber">#FFB35C</color>
+    <color name="accent_cyan">#5CE0D8</color>
+    <color name="accent_red">#FF6B6B</color>
+    <color name="text_primary">#F2F4FA</color>
+    <color name="text_secondary">#8890B5</color>
+    <color name="stroke_soft">#2A3155</color>
+</resources>

@@ -9,7 +9,7 @@
         android:layout_width="52dp"
         android:layout_height="52dp"
         android:background="@drawable/bubble_circle"
-        android:padding="12dp"
+        android:padding="13dp"
         android:src="@android:drawable/ic_menu_manage"
         android:contentDescription="Game Space" />
 
@@ -17,29 +17,48 @@
         android:id="@+id/bubble_panel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="10dp"
         android:orientation="vertical"
         android:background="@drawable/panel_background"
-        android:padding="8dp"
+        android:padding="10dp"
         android:visibility="gone">
 
-        <Button
+        <TextView
             android:id="@+id/btn_dnd"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Chặn thông báo" />
+            android:background="@drawable/panel_row_bg"
+            android:drawablePadding="10dp"
+            android:gravity="center_vertical"
+            android:padding="10dp"
+            android:text="🔕  Chặn thông báo"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp" />
 
-        <Button
+        <TextView
             android:id="@+id/btn_perf"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Hiệu năng cao" />
+            android:layout_marginTop="6dp"
+            android:background="@drawable/panel_row_bg"
+            android:gravity="center_vertical"
+            android:padding="10dp"
+            android:text="⚡  Hiệu năng cao"
+            android:textColor="@color/accent_amber"
+            android:textSize="13sp"
+            android:textStyle="bold" />
 
-        <Button
+        <TextView
             android:id="@+id/btn_battery"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Tiết kiệm pin" />
+            android:layout_marginTop="6dp"
+            android:background="@drawable/panel_row_bg"
+            android:gravity="center_vertical"
+            android:padding="10dp"
+            android:text="🔋  Tiết kiệm pin"
+            android:textColor="@color/accent_cyan"
+            android:textSize="13sp" />
 
     </LinearLayout>
 

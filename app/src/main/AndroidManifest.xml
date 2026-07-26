@@ -13,7 +13,7 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <application
-        android:label="Game Space"
+        android:label="@string/app_name"
         android:icon="@android:drawable/sym_def_app_icon"
         android:allowBackup="true"
         android:theme="@style/Theme.GameSpace">
@@ -26,6 +26,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".GameEnterSplashActivity"
+            android:theme="@style/Theme.GameSpace.Splash"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false" />
 
         <service
             android:name=".GameWatcherService"
