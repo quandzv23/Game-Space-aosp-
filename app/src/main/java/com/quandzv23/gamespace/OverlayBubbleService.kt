@@ -34,6 +34,7 @@ class OverlayBubbleService : Service() {
     private var panelParams: WindowManager.LayoutParams? = null
 
     private var screenWidthPx = 0
+    private var screenHeightPx = 0
     private var panelWidthPx = 0
     private var isPanelOpen = false
 
@@ -67,6 +68,7 @@ class OverlayBubbleService : Service() {
         val dm = DisplayMetrics()
         windowManager.defaultDisplay.getMetrics(dm)
         screenWidthPx = dm.widthPixels
+        screenHeightPx = dm.heightPixels
         panelWidthPx = (248 * dm.density).toInt()
         addEdgeTab()
     }
@@ -91,22 +93,45 @@ class OverlayBubbleService : Service() {
 
         var startTouchX = 0f
         var startTouchY = 0f
+        var startTabY = 0
         var dragging = false
+        var longPressMode = false
+        val longPressHandler = Handler(Looper.getMainLooper())
+        var longPressTriggered = false
+        val longPressRunnable = Runnable {
+            if (!dragging) {
+                longPressMode = true
+                longPressTriggered = true
+            }
+        }
 
         view.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     startTouchX = event.rawX
                     startTouchY = event.rawY
+                    startTabY = tabParams?.y ?: 260
                     dragging = false
+                    longPressMode = false
+                    longPressTriggered = false
+                    longPressHandler.postDelayed(longPressRunnable, 400)
                     if (!isPanelOpen) ensurePanelAdded()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - startTouchX
                     val dy = event.rawY - startTouchY
-                    if (!dragging && (abs(dx) > 12 || abs(dy) > 12)) dragging = true
-                    if (dragging && abs(dx) > abs(dy)) {
+                    if (!dragging && (abs(dx) > 16 || abs(dy) > 16)) {
+                        dragging = true
+                        if (!longPressTriggered) longPressHandler.removeCallbacks(longPressRunnable)
+                    }
+                    if (longPressMode) {
+                        // Nhấn giữ: kéo thanh vuốt lên/xuống theo cạnh màn hình
+                        tabParams?.let {
+                            it.y = (startTabY + dy).toInt().coerceIn(0, screenHeightPx - 96)
+                            tabView?.let { tv -> windowManager.updateViewLayout(tv, it) }
+                        }
+                    } else if (dragging && abs(dx) > abs(dy)) {
                         // Vuốt ngang: kéo panel theo tay
                         val openX = screenWidthPx - panelWidthPx
                         val hiddenX = screenWidthPx
@@ -121,9 +146,11 @@ class OverlayBubbleService : Service() {
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    longPressHandler.removeCallbacks(longPressRunnable)
                     val dx = event.rawX - startTouchX
-                    if (!dragging) {
-                        // Tap: bật/tắt panel
+                    if (longPressMode) {
+                        // Vừa kéo xong, không mở/đóng panel
+                    } else if (!dragging) {
                         togglePanel()
                     } else {
                         val openedEnough = dx < -panelWidthPx / 2f

@@ -165,12 +165,31 @@ class MainActivity : AppCompatActivity() {
             .filter { pm.getLaunchIntentForPackage(it.packageName) != null }
             .sortedBy { pm.getApplicationLabel(it).toString() }
 
-        val labels = apps.map { "${pm.getApplicationLabel(it)}  (${it.packageName})" }.toTypedArray()
+        val dialogView = layoutInflater.inflate(R.layout.dialog_app_picker, null)
+        val recyclerView = dialogView.findViewById<RecyclerView>(R.id.picker_list)
+        val searchBox = dialogView.findViewById<android.widget.EditText>(R.id.picker_search)
+        recyclerView.layoutManager = LinearLayoutManager(this)
 
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Chọn app")
-            .setItems(labels) { _, which -> onSelected(apps[which].packageName) }
-            .show()
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        val adapter = AppPickerAdapter(pm, apps) { app ->
+            onSelected(app.packageName)
+            dialog.dismiss()
+        }
+        recyclerView.adapter = adapter
+
+        searchBox.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {
+                adapter.filter(s?.toString() ?: "")
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        dialog.show()
     }
 
     private fun refreshQuickApps() {
