@@ -54,15 +54,14 @@ class GameAdapter(
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val pkg = packages[position]
-        val label: String
-        val icon: android.graphics.drawable.Drawable?
+        var label: String = pkg
+        var icon: android.graphics.drawable.Drawable? = null
         try {
             val appInfo = packageManager.getApplicationInfo(pkg, 0)
             icon = packageManager.getApplicationIcon(appInfo)
             label = packageManager.getApplicationLabel(appInfo).toString()
         } catch (e: PackageManager.NameNotFoundException) {
-            icon = null
-            label = pkg
+           
         }
 
         val launchAction = {
