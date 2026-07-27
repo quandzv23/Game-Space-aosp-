@@ -81,7 +81,7 @@
                 android:textSize="11sp" />
 
             <TextView
-                android:id="@+id/cpu_usage_text"
+                android:id="@+id/cpu_usage_text_2"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--%"
@@ -107,7 +107,7 @@
                 android:textSize="11sp" />
 
             <TextView
-                android:id="@+id/panel_fps_text"
+                android:id="@+id/panel_fps_text_2"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
