@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="248dp"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="272dp"
+    android:layout_height="wrap_content"
+    android:maxHeight="560dp"
+    android:scrollbars="none">
+
+<LinearLayout
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/sidebar_panel_bg"
     android:orientation="vertical"
@@ -32,134 +38,124 @@
             android:textSize="14sp" />
     </LinearLayout>
 
-    <!-- DND toggle -->
+    <!-- Chế độ hiệu năng: 3 ô vuông ngang hàng, kiểu HyperOS -->
     <LinearLayout
-        android:id="@+id/row_dnd"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:background="@drawable/panel_row_bg"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        android:gravity="center_vertical">
+        android:layout_marginTop="14dp"
+        android:orientation="horizontal">
 
-        <TextView
+        <LinearLayout
+            android:id="@+id/btn_balanced"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🔕  Chặn thông báo"
-            android:textColor="@color/text_primary"
-            android:textSize="13sp" />
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/tile_bg_active"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="12dp">
 
-        <TextView
-            android:id="@+id/dnd_state"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Tắt"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚖️"
+                android:textSize="20sp" />
 
-    </LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Cân bằng"
+                android:textColor="@color/text_primary"
+                android:textSize="10sp" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="HIỆU NĂNG"
-        android:textColor="@color/text_secondary"
-        android:textSize="10sp"
-        android:letterSpacing="0.15" />
+            <TextView
+                android:id="@+id/check_balanced"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="@color/accent_amber"
+                android:textSize="9sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
-    <!-- Segmented profile control -->
-    <LinearLayout
-        android:id="@+id/btn_balanced"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/panel_row_bg"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        android:gravity="center_vertical">
-
-        <TextView
+        <LinearLayout
+            android:id="@+id/btn_perf"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="⚖️  Cân bằng"
-            android:textColor="@color/text_primary"
-            android:textSize="13sp" />
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/tile_bg_inactive"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="12dp">
 
-        <TextView
-            android:id="@+id/check_balanced"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text=""
-            android:textColor="@color/accent_cyan"
-            android:textStyle="bold" />
-    </LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚡"
+                android:textSize="20sp" />
 
-    <LinearLayout
-        android:id="@+id/btn_perf"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:background="@drawable/panel_row_bg"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        android:gravity="center_vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Hiệu năng"
+                android:textColor="@color/text_primary"
+                android:textSize="10sp" />
 
-        <TextView
+            <TextView
+                android:id="@+id/check_perf"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="@color/accent_amber"
+                android:textSize="9sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btn_battery"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="⚡  Hiệu năng cao"
-            android:textColor="@color/accent_amber"
-            android:textStyle="bold"
-            android:textSize="13sp" />
+            android:background="@drawable/tile_bg_inactive"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="12dp">
 
-        <TextView
-            android:id="@+id/check_perf"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text=""
-            android:textColor="@color/accent_amber"
-            android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔋"
+                android:textSize="20sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Tiết kiệm"
+                android:textColor="@color/text_primary"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/check_battery"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="@color/accent_amber"
+                android:textSize="9sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
     </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/btn_battery"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:background="@drawable/panel_row_bg"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        android:gravity="center_vertical">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="🔋  Tiết kiệm pin"
-            android:textColor="@color/accent_cyan"
-            android:textSize="13sp" />
-
-        <TextView
-            android:id="@+id/check_battery"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text=""
-            android:textColor="@color/accent_cyan"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <!-- Trạng thái phản hồi thật -->
     <TextView
         android:id="@+id/feedback_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="8dp"
         android:gravity="center"
         android:text=""
         android:textSize="11sp"
@@ -174,131 +170,162 @@
         android:textSize="10sp"
         android:letterSpacing="0.15" />
 
+    <!-- Lưới tiện ích 4 ô/hàng, gọn hơn — khớp bản HyperOS mới nhất (4x4 grid) -->
     <LinearLayout
-        android:id="@+id/row_fps"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:background="@drawable/panel_row_bg"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        android:gravity="center_vertical">
+        android:orientation="horizontal">
 
-        <TextView
+        <LinearLayout
+            android:id="@+id/row_dnd"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="📊  Đếm FPS"
-            android:textColor="@color/text_primary"
-            android:textSize="13sp" />
+            android:layout_marginEnd="5dp"
+            android:background="@drawable/tile_bg_inactive"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="7dp">
 
-        <TextView
-            android:id="@+id/fps_state"
-            android:layout_width="wrap_content"
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="🔕" android:textSize="15sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="2dp" android:text="Chặn TB"
+                android:textColor="@color/text_primary" android:textSize="8sp" />
+            <TextView android:id="@+id/dnd_state" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="Tắt"
+                android:textColor="@color/text_secondary" android:textSize="7sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/row_fps"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Tắt"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+            android:layout_weight="1"
+            android:layout_marginEnd="5dp"
+            android:background="@drawable/tile_bg_inactive"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="7dp">
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="📊" android:textSize="15sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="2dp" android:text="FPS"
+                android:textColor="@color/text_primary" android:textSize="8sp" />
+            <TextView android:id="@+id/fps_state" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="Tắt"
+                android:textColor="@color/text_secondary" android:textSize="7sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/row_touchlock"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="5dp"
+            android:background="@drawable/tile_bg_inactive"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="7dp">
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="🔒" android:textSize="15sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="2dp" android:text="Khóa góc"
+                android:textColor="@color/text_primary" android:textSize="8sp" />
+            <TextView android:id="@+id/touchlock_state" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="Tắt"
+                android:textColor="@color/text_secondary" android:textSize="7sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/row_callblock"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/tile_bg_inactive"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="7dp">
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="📵" android:textSize="15sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="2dp" android:text="Chặn gọi"
+                android:textColor="@color/text_primary" android:textSize="8sp" />
+            <TextView android:id="@+id/callblock_state" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="Tắt"
+                android:textColor="@color/text_secondary" android:textSize="7sp" />
+        </LinearLayout>
+
     </LinearLayout>
 
     <LinearLayout
-        android:id="@+id/row_touchlock"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:background="@drawable/panel_row_bg"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        android:gravity="center_vertical">
+        android:orientation="horizontal">
 
-        <TextView
+        <LinearLayout
+            android:id="@+id/row_wifi"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🔒  Khóa cảm ứng góc"
-            android:textColor="@color/text_primary"
-            android:textSize="13sp" />
+            android:layout_marginEnd="5dp"
+            android:background="@drawable/tile_bg_inactive"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="7dp">
 
-        <TextView
-            android:id="@+id/touchlock_state"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Tắt"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-    </LinearLayout>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="📶" android:textSize="15sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="2dp" android:text="WiFi"
+                android:textColor="@color/text_primary" android:textSize="8sp" />
+            <TextView android:id="@+id/wifi_state" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="Tắt"
+                android:textColor="@color/text_secondary" android:textSize="7sp" />
+        </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/row_callblock"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:background="@drawable/panel_row_bg"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        android:gravity="center_vertical">
-
-        <TextView
+        <LinearLayout
+            android:id="@+id/row_multitask"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="📵  Chặn cuộc gọi"
-            android:textColor="@color/text_primary"
-            android:textSize="13sp" />
+            android:layout_marginEnd="5dp"
+            android:background="@drawable/tile_bg_inactive"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="7dp">
 
-        <TextView
-            android:id="@+id/callblock_state"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Tắt"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="📱" android:textSize="15sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="2dp" android:text="Đa nhiệm"
+                android:textColor="@color/text_primary" android:textSize="8sp" />
+            <TextView android:id="@+id/multitask_state" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="Tắt"
+                android:textColor="@color/text_secondary" android:textSize="7sp" />
+        </LinearLayout>
+
+        <!-- 2 ô trống dành cho tiện ích sau này, giữ đúng khung 4x4 -->
+        <LinearLayout
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginEnd="5dp" android:paddingVertical="7dp" />
+        <LinearLayout
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:paddingVertical="7dp" />
+
     </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/row_wifi"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:background="@drawable/panel_row_bg"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        android:gravity="center_vertical">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="📶  Tối ưu WiFi (giảm ping)"
-            android:textColor="@color/text_primary"
-            android:textSize="13sp" />
-
-        <TextView
-            android:id="@+id/wifi_state"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Tắt"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
-        android:text="ĐA NHIỆM NHANH"
-        android:textColor="@color/text_secondary"
-        android:textSize="10sp"
-        android:letterSpacing="0.15" />
 
     <HorizontalScrollView
+        android:id="@+id/quick_apps_scroll"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
+        android:visibility="gone"
         android:scrollbars="none">
 
         <LinearLayout
@@ -310,3 +337,4 @@
     </HorizontalScrollView>
 
 </LinearLayout>
+</ScrollView>

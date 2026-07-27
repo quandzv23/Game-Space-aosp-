@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="26dp"
-    android:layout_height="96dp"
+    android:layout_width="40dp"
+    android:layout_height="150dp"
     android:background="@drawable/edge_tab_bg"
     android:orientation="vertical"
     android:gravity="center"
-    android:paddingVertical="10dp">
+    android:paddingVertical="14dp">
 
-    <View android:layout_width="3dp" android:layout_height="3dp"
-        android:background="@drawable/dot_amber" android:layout_marginBottom="6dp" />
-    <View android:layout_width="3dp" android:layout_height="3dp"
-        android:background="@drawable/dot_amber" android:layout_marginBottom="6dp" />
-    <View android:layout_width="3dp" android:layout_height="3dp"
+    <View android:layout_width="4dp" android:layout_height="4dp"
+        android:background="@drawable/dot_amber" android:layout_marginBottom="9dp" />
+    <View android:layout_width="4dp" android:layout_height="4dp"
+        android:background="@drawable/dot_amber" android:layout_marginBottom="9dp" />
+    <View android:layout_width="4dp" android:layout_height="4dp"
         android:background="@drawable/dot_amber" />
 
 </LinearLayout>

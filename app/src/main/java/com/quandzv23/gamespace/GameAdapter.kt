@@ -14,14 +14,22 @@ class GameAdapter(
     private val context: Context,
     private val packageManager: PackageManager,
     private var packages: List<String>,
+    private var cardMode: Boolean = false,
     private val onRemove: (String) -> Unit
-) : RecyclerView.Adapter<GameAdapter.GameViewHolder>() {
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-    class GameViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+    class ListViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val icon: ImageView = view.findViewById(R.id.app_icon)
         val name: TextView = view.findViewById(R.id.app_name)
         val playBtn: TextView = view.findViewById(R.id.btn_play)
         val removeBtn: TextView = view.findViewById(R.id.btn_remove)
+    }
+
+    class CardViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val icon: ImageView = view.findViewById(R.id.card_app_icon)
+        val name: TextView = view.findViewById(R.id.card_app_name)
+        val playBtn: TextView = view.findViewById(R.id.card_btn_play)
+        val removeBtn: TextView = view.findViewById(R.id.card_btn_remove)
     }
 
     fun submit(newPackages: List<String>) {
@@ -29,28 +37,52 @@ class GameAdapter(
         notifyDataSetChanged()
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GameViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_game, parent, false)
-        return GameViewHolder(view)
+    fun setCardMode(enabled: Boolean) {
+        cardMode = enabled
+        notifyDataSetChanged()
     }
 
-    override fun onBindViewHolder(holder: GameViewHolder, position: Int) {
+    override fun getItemViewType(position: Int): Int = if (cardMode) 1 else 0
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        return if (viewType == 1) {
+            CardViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_game_card, parent, false))
+        } else {
+            ListViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_game, parent, false))
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val pkg = packages[position]
+        val label: String
+        val icon: android.graphics.drawable.Drawable?
         try {
             val appInfo = packageManager.getApplicationInfo(pkg, 0)
-            holder.icon.setImageDrawable(packageManager.getApplicationIcon(appInfo))
-            holder.name.text = packageManager.getApplicationLabel(appInfo).toString()
+            icon = packageManager.getApplicationIcon(appInfo)
+            label = packageManager.getApplicationLabel(appInfo).toString()
         } catch (e: PackageManager.NameNotFoundException) {
-            holder.icon.setImageDrawable(null)
-            holder.name.text = pkg
+            icon = null
+            label = pkg
         }
-        holder.removeBtn.setOnClickListener { onRemove(pkg) }
-        holder.playBtn.setOnClickListener {
+
+        val launchAction = {
             val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
-            if (launchIntent != null) {
-                context.startActivity(launchIntent)
-            } else {
-                Toast.makeText(context, "Không mở được app này", Toast.LENGTH_SHORT).show()
+            if (launchIntent != null) context.startActivity(launchIntent)
+            else Toast.makeText(context, "Không mở được app này", Toast.LENGTH_SHORT).show()
+        }
+
+        when (holder) {
+            is ListViewHolder -> {
+                holder.icon.setImageDrawable(icon)
+                holder.name.text = label
+                holder.removeBtn.setOnClickListener { onRemove(pkg) }
+                holder.playBtn.setOnClickListener { launchAction() }
+            }
+            is CardViewHolder -> {
+                holder.icon.setImageDrawable(icon)
+                holder.name.text = label
+                holder.removeBtn.setOnClickListener { onRemove(pkg) }
+                holder.playBtn.setOnClickListener { launchAction() }
             }
         }
     }

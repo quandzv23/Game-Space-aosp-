@@ -44,11 +44,20 @@
                     android:textSize="18sp"
                     android:textStyle="bold" />
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="CÀI ĐẶT CHUNG"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.15" />
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="8dp"
                     android:gravity="center_vertical">
 
                     <TextView
@@ -199,6 +208,19 @@
                     android:text="Danh sách game"
                     android:textColor="@color/text_primary"
                     android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/btn_toggle_view"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/panel_row_bg"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="7dp"
+                    android:text="☰ List"
+                    android:textColor="@color/accent_cyan"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
                 <TextView

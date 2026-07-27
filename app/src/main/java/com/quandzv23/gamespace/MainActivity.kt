@@ -32,12 +32,24 @@ class MainActivity : AppCompatActivity() {
         scanRootAccess()
 
         val listView = findViewById<RecyclerView>(R.id.game_list)
-        listView.layoutManager = LinearLayoutManager(this)
-        adapter = GameAdapter(this, packageManager, GameListStore.getGames(this).toList().sorted()) { pkg ->
+        var isCardMode = true
+        listView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        adapter = GameAdapter(this, packageManager, GameListStore.getGames(this).toList().sorted(), isCardMode) { pkg ->
             GameListStore.removeGame(this, pkg)
             refreshList()
         }
         listView.adapter = adapter
+
+        findViewById<TextView>(R.id.btn_toggle_view).setOnClickListener { toggleBtn ->
+            isCardMode = !isCardMode
+            listView.layoutManager = if (isCardMode) {
+                LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+            } else {
+                LinearLayoutManager(this)
+            }
+            adapter.setCardMode(isCardMode)
+            (toggleBtn as TextView).text = if (isCardMode) "☰ List" else "▦ Thẻ"
+        }
 
         findViewById<TextView>(R.id.btn_add_game).setOnClickListener {
             showInstalledAppsPicker { pkg ->

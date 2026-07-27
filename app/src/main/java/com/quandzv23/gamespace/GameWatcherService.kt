@@ -109,7 +109,9 @@ class GameWatcherService : Service() {
     private fun showBubble() {
         if (bubbleShown) return
         bubbleShown = true
-        startService(Intent(this, OverlayBubbleService::class.java))
+        val intent = Intent(this, OverlayBubbleService::class.java)
+        intent.putExtra("target_package", currentGamePackage)
+        startService(intent)
     }
 
     private fun hideBubble() {

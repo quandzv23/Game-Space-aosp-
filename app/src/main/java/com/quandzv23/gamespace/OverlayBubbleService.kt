@@ -1,5 +1,6 @@
 package com.quandzv23.gamespace
 
+import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.NotificationManager
 import android.app.Service
@@ -39,22 +40,18 @@ class OverlayBubbleService : Service() {
     private var isPanelOpen = false
 
     private var currentProfile: PerfProfileManager.Profile = PerfProfileManager.Profile.BALANCED
+    private var targetPackage: String? = null
 
-    // FPS counter
+    // FPS counter — đo frame thật của app game (không phải vsync overlay của chính mình)
     private var fpsView: TextView? = null
     private var fpsParams: WindowManager.LayoutParams? = null
-    private var frameCount = 0
-    private var lastFpsTime = 0L
-    private val fpsCallback = object : android.view.Choreographer.FrameCallback {
-        override fun doFrame(frameTimeNanos: Long) {
-            frameCount++
-            val now = System.currentTimeMillis()
-            if (now - lastFpsTime >= 1000) {
-                fpsView?.text = "$frameCount FPS"
-                frameCount = 0
-                lastFpsTime = now
-            }
-            if (fpsView != null) android.view.Choreographer.getInstance().postFrameCallback(this)
+    private var fpsHandler: Handler? = null
+    private var fpsRunning = false
+    private var lastMaxTimestampNanos = 0L
+    private val fpsPollRunnable = object : Runnable {
+        override fun run() {
+            pollRealFps()
+            if (fpsRunning) fpsHandler?.postDelayed(this, 1000)
         }
     }
 
@@ -72,8 +69,13 @@ class OverlayBubbleService : Service() {
         windowManager.defaultDisplay.getMetrics(dm)
         screenWidthPx = dm.widthPixels
         screenHeightPx = dm.heightPixels
-        panelWidthPx = (248 * dm.density).toInt()
+        panelWidthPx = (272 * dm.density).toInt()
         addEdgeTab()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        intent?.getStringExtra("target_package")?.let { targetPackage = it }
+        return START_STICKY
     }
 
     private fun addEdgeTab() {
@@ -124,7 +126,7 @@ class OverlayBubbleService : Service() {
                     if (verticalDrag) {
                         // Kéo lên/xuống: di chuyển thanh vuốt dọc theo cạnh màn hình
                         tabParams?.let {
-                            it.y = (startTabY + dy).toInt().coerceIn(0, screenHeightPx - 96)
+                            it.y = (startTabY + dy).toInt().coerceIn(0, screenHeightPx - 150)
                             tabView?.let { tv -> windowManager.updateViewLayout(tv, it) }
                         }
                     } else if (horizontalDrag) {
@@ -226,6 +228,17 @@ class OverlayBubbleService : Service() {
             if (enabled) enableWifiOptimization() else disableWifiOptimization()
         }
 
+        val quickAppsScroll = view.findViewById<View>(R.id.quick_apps_scroll)
+        quickAppsScroll.visibility = if (SettingsStore.isMultitaskRowVisible(this)) View.VISIBLE else View.GONE
+        setupToggleRow(
+            view.findViewById(R.id.row_multitask),
+            view.findViewById(R.id.multitask_state),
+            SettingsStore.isMultitaskRowVisible(this)
+        ) { visible ->
+            SettingsStore.setMultitaskRowVisible(this, visible)
+            quickAppsScroll.visibility = if (visible) View.VISIBLE else View.GONE
+        }
+
         populateQuickApps(view)
 
         // Áp dụng lại trạng thái tiện ích đã lưu mỗi lần panel/overlay được tạo lại
@@ -300,6 +313,12 @@ class OverlayBubbleService : Service() {
     /** Chạy ghi sysfs ở thread nền (tránh treo UI), rồi phản hồi thật lên panel + Toast. */
     private fun applyProfile(profile: PerfProfileManager.Profile, panel: View) {
         val feedback = panel.findViewById<TextView>(R.id.feedback_text)
+        val tappedTile = when (profile) {
+            PerfProfileManager.Profile.BALANCED -> panel.findViewById<View>(R.id.btn_balanced)
+            PerfProfileManager.Profile.PERFORMANCE -> panel.findViewById<View>(R.id.btn_perf)
+            PerfProfileManager.Profile.BATTERY_SAVER -> panel.findViewById<View>(R.id.btn_battery)
+        }
+        feedback.alpha = 1f
         feedback.text = "Đang áp dụng..."
         thread {
             val success = PerfProfileManager.applyGameProfile(profile)
@@ -307,23 +326,63 @@ class OverlayBubbleService : Service() {
                 if (success) {
                     currentProfile = profile
                     updateProfileHighlight(panel)
+                    playTilePunch(tappedTile)
                     feedback.text = "✓ Đã áp dụng lúc " + timeNow()
-                    Toast.makeText(this, "Đã bật ${profileLabel(profile)}", Toast.LENGTH_SHORT).show()
+                    fadeInFeedback(feedback)
                 } else {
+                    playTileShake(tappedTile)
                     feedback.text = "✕ Ghi sysfs thất bại — kiểm tra quyền root"
-                    Toast.makeText(this, "Không áp dụng được — thiếu quyền root?", Toast.LENGTH_LONG).show()
+                    fadeInFeedback(feedback)
                 }
             }
         }
     }
 
+    /** Ô vừa chọn "nảy" lên nhẹ kèm loé sáng — phản hồi trực quan thay cho Toast chữ. */
+    private fun playTilePunch(tile: View) {
+        val scaleX = ObjectAnimator.ofFloat(tile, "scaleX", 1f, 1.14f, 1f)
+        val scaleY = ObjectAnimator.ofFloat(tile, "scaleY", 1f, 1.14f, 1f)
+        android.animation.AnimatorSet().apply {
+            playTogether(scaleX, scaleY)
+            duration = 320
+            interpolator = android.view.animation.OvershootInterpolator(2.2f)
+            start()
+        }
+    }
+
+    /** Ghi sysfs thất bại: ô rung ngang báo lỗi trực quan. */
+    private fun playTileShake(tile: View) {
+        val shake = ObjectAnimator.ofFloat(tile, "translationX", 0f, -10f, 10f, -8f, 8f, -4f, 4f, 0f)
+        shake.duration = 380
+        shake.start()
+    }
+
+    private fun fadeInFeedback(feedback: TextView) {
+        feedback.alpha = 0f
+        feedback.animate().alpha(1f).setDuration(220).start()
+    }
+
     private fun updateProfileHighlight(panel: View) {
+        val tileBalanced = panel.findViewById<View>(R.id.btn_balanced)
+        val tilePerf = panel.findViewById<View>(R.id.btn_perf)
+        val tileBattery = panel.findViewById<View>(R.id.btn_battery)
         val checkBalanced = panel.findViewById<TextView>(R.id.check_balanced)
         val checkPerf = panel.findViewById<TextView>(R.id.check_perf)
         val checkBattery = panel.findViewById<TextView>(R.id.check_battery)
+
         checkBalanced.text = if (currentProfile == PerfProfileManager.Profile.BALANCED) "✓" else ""
         checkPerf.text = if (currentProfile == PerfProfileManager.Profile.PERFORMANCE) "✓" else ""
         checkBattery.text = if (currentProfile == PerfProfileManager.Profile.BATTERY_SAVER) "✓" else ""
+
+        tileBalanced.setBackgroundResource(
+            if (currentProfile == PerfProfileManager.Profile.BALANCED) R.drawable.tile_bg_active else R.drawable.tile_bg_inactive
+        )
+        tilePerf.setBackgroundResource(
+            if (currentProfile == PerfProfileManager.Profile.PERFORMANCE) R.drawable.tile_bg_active else R.drawable.tile_bg_inactive
+        )
+        tileBattery.setBackgroundResource(
+            if (currentProfile == PerfProfileManager.Profile.BATTERY_SAVER) R.drawable.tile_bg_active else R.drawable.tile_bg_inactive
+        )
     }
 
     private fun profileLabel(profile: PerfProfileManager.Profile): String = when (profile) {
@@ -345,6 +404,7 @@ class OverlayBubbleService : Service() {
                 if (isOn) resources.getColor(R.color.accent_amber, theme)
                 else resources.getColor(R.color.text_secondary, theme)
             )
+            row.setBackgroundResource(if (isOn) R.drawable.tile_bg_active else R.drawable.tile_bg_inactive)
         }
         render()
         row.setOnClickListener {
@@ -379,15 +439,63 @@ class OverlayBubbleService : Service() {
         fpsView = tv
         fpsParams = params
         windowManager.addView(tv, params)
-        frameCount = 0
-        lastFpsTime = System.currentTimeMillis()
-        android.view.Choreographer.getInstance().postFrameCallback(fpsCallback)
+        lastMaxTimestampNanos = 0L
+        fpsRunning = true
+        fpsHandler = Handler(Looper.getMainLooper())
+        fpsHandler?.post(fpsPollRunnable)
     }
 
     private fun hideFpsOverlay() {
+        fpsRunning = false
+        fpsHandler?.removeCallbacks(fpsPollRunnable)
+        fpsHandler = null
         fpsView?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }
         fpsView = null
         fpsParams = null
+    }
+
+    /** Đọc FPS thật của đúng app game qua `dumpsys gfxinfo <pkg> framestats` (root) —
+     *  đây là API framestats chính thức Android cung cấp để đo hiệu năng render từng app,
+     *  khác hẳn cách đếm vsync của overlay (luôn ra khớp tần số quét màn hình, không phản
+     *  ánh app đang lag hay không). Chạy ở thread nền vì gọi shell là I/O chặn luồng. */
+    private fun pollRealFps() {
+        val pkg = targetPackage ?: return
+        thread {
+            try {
+                val result = com.topjohnwu.superuser.Shell.cmd("dumpsys gfxinfo $pkg framestats").exec()
+                if (!result.isSuccess) return@thread
+                val lines = result.out
+                val startIdx = lines.indexOfFirst { it.contains("PROFILEDATA") }
+                if (startIdx < 0) return@thread
+                // Dòng ngay sau PROFILEDATA đầu tiên là header cột, các dòng sau là số liệu
+                val vsyncTimestamps = mutableListOf<Long>()
+                for (i in (startIdx + 2) until lines.size) {
+                    val line = lines[i]
+                    if (line.contains("PROFILEDATA")) break
+                    val cols = line.split(",")
+                    // Cột thứ 2 (index 1) là Vsync timestamp (nanosecond)
+                    if (cols.size > 1) {
+                        cols[1].trim().toLongOrNull()?.let { vsyncTimestamps.add(it) }
+                    }
+                }
+                if (vsyncTimestamps.isEmpty()) return@thread
+                val maxTs = vsyncTimestamps.max()
+                if (maxTs <= lastMaxTimestampNanos) {
+                    // Game không vẽ frame mới nào trong 1 giây qua (đứng hình/không ở foreground thật)
+                    lastMaxTimestampNanos = maxTs
+                    Handler(Looper.getMainLooper()).post { fpsView?.text = "0 FPS" }
+                    return@thread
+                }
+                val oneSecondAgo = maxTs - 1_000_000_000L
+                val framesInLastSecond = vsyncTimestamps.count { it in (oneSecondAgo + 1)..maxTs }
+                lastMaxTimestampNanos = maxTs
+                Handler(Looper.getMainLooper()).post {
+                    fpsView?.text = "$framesInLastSecond FPS"
+                }
+            } catch (e: Exception) {
+                // Thiếu quyền root hoặc app không render gì (dumpsys rỗng) — bỏ qua lần đọc này
+            }
+        }
     }
 
     /** Overlay chống chạm nhầm 2 góc trên màn hình — chặn thao tác vô tình khi cầm máy chơi game ngang. */

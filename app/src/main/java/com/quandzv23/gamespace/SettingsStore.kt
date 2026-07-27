@@ -8,6 +8,7 @@ object SettingsStore {
     private const val KEY_TOUCH_LOCK = "touch_lock_enabled"
     private const val KEY_CALL_BLOCK = "call_block_enabled"
     private const val KEY_WIFI_OPT = "wifi_optimize_enabled"
+    private const val KEY_MULTITASK_VISIBLE = "multitask_row_visible"
     private const val KEY_QUICK_APPS = "quick_apps"
 
     fun isFpsEnabled(context: Context) =
@@ -40,6 +41,14 @@ object SettingsStore {
     fun setWifiOptimizeEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean(KEY_WIFI_OPT, enabled).apply()
+    }
+
+    fun isMultitaskRowVisible(context: Context) =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_MULTITASK_VISIBLE, false)
+
+    fun setMultitaskRowVisible(context: Context, visible: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_MULTITASK_VISIBLE, visible).apply()
     }
 
     fun getQuickApps(context: Context): Set<String> =
