@@ -469,6 +469,8 @@ class OverlayBubbleService : Service() {
         panelStatsHandler = Handler(Looper.getMainLooper())
         val cpuText = panel.findViewById<TextView>(R.id.cpu_usage_text)
         val fpsText = panel.findViewById<TextView>(R.id.panel_fps_text)
+        val cpuText2 = panel.findViewById<TextView>(R.id.cpu_usage_text_2)
+        val fpsText2 = panel.findViewById<TextView>(R.id.panel_fps_text_2)
         val timeText = panel.findViewById<TextView>(R.id.header_time)
         val batteryText = panel.findViewById<TextView>(R.id.header_battery)
         lastPanelFpsMaxTimestamp = 0L
@@ -494,6 +496,8 @@ class OverlayBubbleService : Service() {
                         if (panelStatsRunning) {
                             cpuText.text = if (cpuPercent >= 0) "$cpuPercent%" else "--%"
                             fpsText.text = if (fps >= 0) "$fps" else "--"
+                            cpuText2.text = cpuText.text
+                            fpsText2.text = fpsText.text
                         }
                     }
                 }
