@@ -42,6 +42,10 @@ class OverlayBubbleService : Service() {
     private var currentProfile: PerfProfileManager.Profile = PerfProfileManager.Profile.BALANCED
     private var targetPackage: String? = null
 
+    private var panelStatsHandler: Handler? = null
+    private var panelStatsRunning = false
+    private var lastPanelFpsMaxTimestamp = 0L
+
     // FPS counter — đo frame thật của app game (không phải vsync overlay của chính mình)
     private var fpsView: TextView? = null
     private var fpsParams: WindowManager.LayoutParams? = null
@@ -248,6 +252,7 @@ class OverlayBubbleService : Service() {
 
         updateProfileHighlight(view)
         windowManager.addView(view, params)
+        startPanelStatsPolling(view)
     }
 
     private fun togglePanel() {
@@ -262,6 +267,7 @@ class OverlayBubbleService : Service() {
 
     private fun snapPanelClosed() {
         val pv = panelView ?: return
+        stopPanelStatsPolling()
         animatePanelX(screenWidthPx) {
             isPanelOpen = false
             try { windowManager.removeView(pv) } catch (e: Exception) { }
@@ -458,6 +464,104 @@ class OverlayBubbleService : Service() {
      *  đây là API framestats chính thức Android cung cấp để đo hiệu năng render từng app,
      *  khác hẳn cách đếm vsync của overlay (luôn ra khớp tần số quét màn hình, không phản
      *  ánh app đang lag hay không). Chạy ở thread nền vì gọi shell là I/O chặn luồng. */
+    private fun startPanelStatsPolling(panel: View) {
+        panelStatsRunning = true
+        panelStatsHandler = Handler(Looper.getMainLooper())
+        val cpuText = panel.findViewById<TextView>(R.id.cpu_usage_text)
+        val fpsText = panel.findViewById<TextView>(R.id.panel_fps_text)
+        val timeText = panel.findViewById<TextView>(R.id.header_time)
+        val batteryText = panel.findViewById<TextView>(R.id.header_battery)
+        lastPanelFpsMaxTimestamp = 0L
+
+        val runnable = object : Runnable {
+            override fun run() {
+                if (!panelStatsRunning) return
+
+                val cal = java.util.Calendar.getInstance()
+                timeText.text = String.format(
+                    "%02d:%02d", cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE)
+                )
+                try {
+                    val bm = getSystemService(Context.BATTERY_SERVICE) as android.os.BatteryManager
+                    val level = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                    batteryText.text = "$level%"
+                } catch (e: Exception) { }
+
+                thread {
+                    val cpuPercent = readCpuUsagePercent()
+                    val fps = readRealFpsOnce()
+                    Handler(Looper.getMainLooper()).post {
+                        if (panelStatsRunning) {
+                            cpuText.text = if (cpuPercent >= 0) "$cpuPercent%" else "--%"
+                            fpsText.text = if (fps >= 0) "$fps" else "--"
+                        }
+                    }
+                }
+                panelStatsHandler?.postDelayed(this, 1500)
+            }
+        }
+        panelStatsHandler?.post(runnable)
+    }
+
+    private fun stopPanelStatsPolling() {
+        panelStatsRunning = false
+        panelStatsHandler?.removeCallbacksAndMessages(null)
+        panelStatsHandler = null
+    }
+
+    /** Đọc % sử dụng CPU tổng thật qua /proc/stat — lấy 2 lần đọc cách nhau 200ms rồi tính
+     *  delta (busy-time / total-time), đúng cách Linux/top tính %CPU thật, không phải số giả. */
+    private fun readCpuUsagePercent(): Int {
+        try {
+            fun readStatLine(): LongArray? {
+                val result = com.topjohnwu.superuser.Shell.cmd("cat /proc/stat").exec()
+                if (!result.isSuccess) return null
+                val line = result.out.firstOrNull { it.startsWith("cpu ") } ?: return null
+                val parts = line.trim().split(Regex("\\s+")).drop(1).mapNotNull { it.toLongOrNull() }
+                if (parts.size < 4) return null
+                val idle = parts[3] + (parts.getOrElse(4) { 0L })
+                val total = parts.sum()
+                return longArrayOf(idle, total)
+            }
+            val first = readStatLine() ?: return -1
+            Thread.sleep(200)
+            val second = readStatLine() ?: return -1
+            val idleDelta = second[0] - first[0]
+            val totalDelta = second[1] - first[1]
+            if (totalDelta <= 0) return -1
+            val usage = (100 * (totalDelta - idleDelta) / totalDelta).toInt()
+            return usage.coerceIn(0, 100)
+        } catch (e: Exception) {
+            return -1
+        }
+    }
+
+    /** Đọc FPS thật 1 lần (đồng bộ, chạy trong thread nền) — dùng chung logic với pollRealFps
+     *  nhưng trả về giá trị thay vì tự cập nhật view, để ghép chung 1 vòng poll với CPU%. */
+    private fun readRealFpsOnce(): Int {
+        val pkg = targetPackage ?: return -1
+        return try {
+            val result = com.topjohnwu.superuser.Shell.cmd("dumpsys gfxinfo $pkg framestats").exec()
+            if (!result.isSuccess) return -1
+            val lines = result.out
+            val startIdx = lines.indexOfFirst { it.contains("PROFILEDATA") }
+            if (startIdx < 0) return -1
+            val vsyncTimestamps = mutableListOf<Long>()
+            for (i in (startIdx + 2) until lines.size) {
+                val line = lines[i]
+                if (line.contains("PROFILEDATA")) break
+                val cols = line.split(",")
+                if (cols.size > 1) cols[1].trim().toLongOrNull()?.let { vsyncTimestamps.add(it) }
+            }
+            if (vsyncTimestamps.isEmpty()) return -1
+            val maxTs = vsyncTimestamps.max()
+            val oneSecondAgo = maxTs - 1_000_000_000L
+            vsyncTimestamps.count { it in (oneSecondAgo + 1)..maxTs }
+        } catch (e: Exception) {
+            -1
+        }
+    }
+
     private fun pollRealFps() {
         val pkg = targetPackage ?: return
         thread {
@@ -610,6 +714,7 @@ class OverlayBubbleService : Service() {
     }
 
     override fun onDestroy() {
+        stopPanelStatsPolling()
         hideFpsOverlay()
         hideTouchLock()
         disableWifiOptimization()
