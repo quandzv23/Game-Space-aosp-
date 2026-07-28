@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="272dp"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:maxHeight="560dp"
     android:scrollbars="none">
@@ -56,128 +56,31 @@
             android:textSize="13sp" />
     </LinearLayout>
 
-    <!-- Chip CPU% / FPS thời gian thực -->
+    <!-- Thanh trạng thái CPU% trực tiếp trong panel, giống GameTurbo thật -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
-        android:orientation="horizontal">
+        android:background="@drawable/panel_row_bg"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingVertical="6dp">
 
-        <LinearLayout
-            android:layout_width="0dp"
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="6dp"
-            android:background="@drawable/panel_row_bg"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:paddingVertical="8dp">
+            android:text="CPU "
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="CPU "
-                android:textColor="@color/text_secondary"
-                android:textSize="11sp" />
-
-            <TextView
-                android:id="@+id/cpu_usage_text_2"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="--%"
-                android:textColor="@color/accent_amber"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/cpu_usage_text"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@drawable/panel_row_bg"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:paddingVertical="8dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="FPS "
-                android:textColor="@color/text_secondary"
-                android:textSize="11sp" />
-
-            <TextView
-                android:id="@+id/panel_fps_text_2"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="--"
-                android:textColor="@color/accent_cyan"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-    </LinearLayout>
-
-    <!-- Thanh trạng thái CPU% + FPS trực tiếp trong panel, giống GameTurbo thật -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:orientation="horizontal">
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="6dp"
-            android:background="@drawable/panel_row_bg"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:paddingVertical="6dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="CPU "
-                android:textColor="@color/text_secondary"
-                android:textSize="11sp" />
-
-            <TextView
-                android:id="@+id/cpu_usage_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="--%"
-                android:textColor="@color/accent_cyan"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@drawable/panel_row_bg"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:paddingVertical="6dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="FPS "
-                android:textColor="@color/text_secondary"
-                android:textSize="11sp" />
-
-            <TextView
-                android:id="@+id/panel_fps_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="--"
-                android:textColor="@color/accent_amber"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
+            android:text="--%"
+            android:textColor="@color/accent_cyan"
+            android:textSize="11sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
     <!-- Chế độ hiệu năng: 3 ô vuông ngang hàng, kiểu HyperOS -->
@@ -303,6 +206,7 @@
         android:textSize="11sp"
         android:textColor="@color/text_secondary" />
 
+
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -312,7 +216,7 @@
         android:textSize="10sp"
         android:letterSpacing="0.15" />
 
-    <!-- Lưới tiện ích 4 ô/hàng, gọn hơn — khớp bản HyperOS mới nhất (4x4 grid) -->
+    <!-- Lưới tiện ích 4 ô 1 hàng, gọn theo kiểu HyperOS -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -328,35 +232,14 @@
             android:background="@drawable/tile_bg_inactive"
             android:orientation="vertical"
             android:gravity="center"
-            android:paddingVertical="7dp">
+            android:paddingVertical="8dp">
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="🔕" android:textSize="15sp" />
+                android:text="🔕" android:textSize="16sp" />
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:layout_marginTop="2dp" android:text="Chặn TB"
                 android:textColor="@color/text_primary" android:textSize="8sp" />
             <TextView android:id="@+id/dnd_state" android:layout_width="wrap_content"
-                android:layout_height="wrap_content" android:text="Tắt"
-                android:textColor="@color/text_secondary" android:textSize="7sp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/row_fps"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="5dp"
-            android:background="@drawable/tile_bg_inactive"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:paddingVertical="7dp">
-
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="📊" android:textSize="15sp" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:layout_marginTop="2dp" android:text="FPS"
-                android:textColor="@color/text_primary" android:textSize="8sp" />
-            <TextView android:id="@+id/fps_state" android:layout_width="wrap_content"
                 android:layout_height="wrap_content" android:text="Tắt"
                 android:textColor="@color/text_secondary" android:textSize="7sp" />
         </LinearLayout>
@@ -370,10 +253,10 @@
             android:background="@drawable/tile_bg_inactive"
             android:orientation="vertical"
             android:gravity="center"
-            android:paddingVertical="7dp">
+            android:paddingVertical="8dp">
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="🔒" android:textSize="15sp" />
+                android:text="🔒" android:textSize="16sp" />
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:layout_marginTop="2dp" android:text="Khóa góc"
                 android:textColor="@color/text_primary" android:textSize="8sp" />
@@ -387,17 +270,38 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:layout_marginEnd="5dp"
             android:background="@drawable/tile_bg_inactive"
             android:orientation="vertical"
             android:gravity="center"
-            android:paddingVertical="7dp">
+            android:paddingVertical="8dp">
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="📵" android:textSize="15sp" />
+                android:text="📵" android:textSize="16sp" />
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:layout_marginTop="2dp" android:text="Chặn gọi"
                 android:textColor="@color/text_primary" android:textSize="8sp" />
             <TextView android:id="@+id/callblock_state" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="Tắt"
+                android:textColor="@color/text_secondary" android:textSize="7sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/row_wifi"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/tile_bg_inactive"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="8dp">
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="📶" android:textSize="16sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="2dp" android:text="WiFi"
+                android:textColor="@color/text_primary" android:textSize="8sp" />
+            <TextView android:id="@+id/wifi_state" android:layout_width="wrap_content"
                 android:layout_height="wrap_content" android:text="Tắt"
                 android:textColor="@color/text_secondary" android:textSize="7sp" />
         </LinearLayout>
@@ -411,27 +315,6 @@
         android:orientation="horizontal">
 
         <LinearLayout
-            android:id="@+id/row_wifi"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="5dp"
-            android:background="@drawable/tile_bg_inactive"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:paddingVertical="7dp">
-
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="📶" android:textSize="15sp" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:layout_marginTop="2dp" android:text="WiFi"
-                android:textColor="@color/text_primary" android:textSize="8sp" />
-            <TextView android:id="@+id/wifi_state" android:layout_width="wrap_content"
-                android:layout_height="wrap_content" android:text="Tắt"
-                android:textColor="@color/text_secondary" android:textSize="7sp" />
-        </LinearLayout>
-
-        <LinearLayout
             android:id="@+id/row_multitask"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -440,10 +323,10 @@
             android:background="@drawable/tile_bg_inactive"
             android:orientation="vertical"
             android:gravity="center"
-            android:paddingVertical="7dp">
+            android:paddingVertical="8dp">
 
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="📱" android:textSize="15sp" />
+                android:text="📱" android:textSize="16sp" />
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:layout_marginTop="2dp" android:text="Đa nhiệm"
                 android:textColor="@color/text_primary" android:textSize="8sp" />
@@ -452,13 +335,15 @@
                 android:textColor="@color/text_secondary" android:textSize="7sp" />
         </LinearLayout>
 
-        <!-- 2 ô trống dành cho tiện ích sau này, giữ đúng khung 4x4 -->
         <LinearLayout
             android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-            android:layout_marginEnd="5dp" android:paddingVertical="7dp" />
+            android:layout_marginEnd="5dp" android:paddingVertical="8dp" />
         <LinearLayout
             android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-            android:paddingVertical="7dp" />
+            android:layout_marginEnd="5dp" android:paddingVertical="8dp" />
+        <LinearLayout
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:paddingVertical="8dp" />
 
     </LinearLayout>
 

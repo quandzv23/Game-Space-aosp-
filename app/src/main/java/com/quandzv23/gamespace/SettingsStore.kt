@@ -4,20 +4,11 @@ import android.content.Context
 
 object SettingsStore {
     private const val PREFS = "qspace_settings"
-    private const val KEY_FPS = "fps_enabled"
     private const val KEY_TOUCH_LOCK = "touch_lock_enabled"
     private const val KEY_CALL_BLOCK = "call_block_enabled"
     private const val KEY_WIFI_OPT = "wifi_optimize_enabled"
     private const val KEY_MULTITASK_VISIBLE = "multitask_row_visible"
     private const val KEY_QUICK_APPS = "quick_apps"
-
-    fun isFpsEnabled(context: Context) =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_FPS, false)
-
-    fun setFpsEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putBoolean(KEY_FPS, enabled).apply()
-    }
 
     fun isTouchLockEnabled(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_TOUCH_LOCK, false)

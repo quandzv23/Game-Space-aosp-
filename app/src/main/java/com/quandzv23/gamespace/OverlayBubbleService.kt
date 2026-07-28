@@ -44,20 +44,7 @@ class OverlayBubbleService : Service() {
 
     private var panelStatsHandler: Handler? = null
     private var panelStatsRunning = false
-    private var lastPanelFpsMaxTimestamp = 0L
 
-    // FPS counter — đo frame thật của app game (không phải vsync overlay của chính mình)
-    private var fpsView: TextView? = null
-    private var fpsParams: WindowManager.LayoutParams? = null
-    private var fpsHandler: Handler? = null
-    private var fpsRunning = false
-    private var lastMaxTimestampNanos = 0L
-    private val fpsPollRunnable = object : Runnable {
-        override fun run() {
-            pollRealFps()
-            if (fpsRunning) fpsHandler?.postDelayed(this, 1000)
-        }
-    }
 
     // Khóa cảm ứng góc (chống chạm nhầm)
     private var touchLockTopLeft: View? = null
@@ -172,7 +159,7 @@ class OverlayBubbleService : Service() {
         panelView = view
 
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            panelWidthPx,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -195,15 +182,6 @@ class OverlayBubbleService : Service() {
         }
         view.findViewById<View>(R.id.btn_battery).setOnClickListener {
             applyProfile(PerfProfileManager.Profile.BATTERY_SAVER, view)
-        }
-
-        setupToggleRow(
-            view.findViewById(R.id.row_fps),
-            view.findViewById(R.id.fps_state),
-            SettingsStore.isFpsEnabled(this)
-        ) { enabled ->
-            SettingsStore.setFpsEnabled(this, enabled)
-            if (enabled) showFpsOverlay() else hideFpsOverlay()
         }
 
         setupToggleRow(
@@ -242,11 +220,9 @@ class OverlayBubbleService : Service() {
             SettingsStore.setMultitaskRowVisible(this, visible)
             quickAppsScroll.visibility = if (visible) View.VISIBLE else View.GONE
         }
-
         populateQuickApps(view)
 
         // Áp dụng lại trạng thái tiện ích đã lưu mỗi lần panel/overlay được tạo lại
-        if (SettingsStore.isFpsEnabled(this)) showFpsOverlay()
         if (SettingsStore.isTouchLockEnabled(this)) showTouchLock()
         if (SettingsStore.isWifiOptimizeEnabled(this)) enableWifiOptimization()
 
@@ -420,60 +396,13 @@ class OverlayBubbleService : Service() {
         }
     }
 
-    private fun showFpsOverlay() {
-        if (fpsView != null) return
-        val tv = TextView(this).apply {
-            text = "-- FPS"
-            setTextColor(resources.getColor(R.color.accent_amber, theme))
-            textSize = 12f
-            setBackgroundResource(R.drawable.panel_row_bg)
-            setPadding(16, 8, 16, 8)
-        }
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 16
-            y = 60
-        }
-        fpsView = tv
-        fpsParams = params
-        windowManager.addView(tv, params)
-        lastMaxTimestampNanos = 0L
-        fpsRunning = true
-        fpsHandler = Handler(Looper.getMainLooper())
-        fpsHandler?.post(fpsPollRunnable)
-    }
-
-    private fun hideFpsOverlay() {
-        fpsRunning = false
-        fpsHandler?.removeCallbacks(fpsPollRunnable)
-        fpsHandler = null
-        fpsView?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }
-        fpsView = null
-        fpsParams = null
-    }
-
-    /** Đọc FPS thật của đúng app game qua `dumpsys gfxinfo <pkg> framestats` (root) —
-     *  đây là API framestats chính thức Android cung cấp để đo hiệu năng render từng app,
-     *  khác hẳn cách đếm vsync của overlay (luôn ra khớp tần số quét màn hình, không phản
-     *  ánh app đang lag hay không). Chạy ở thread nền vì gọi shell là I/O chặn luồng. */
+    /** Cập nhật giờ/pin/CPU% mỗi 1.5 giây khi panel đang mở. */
     private fun startPanelStatsPolling(panel: View) {
         panelStatsRunning = true
         panelStatsHandler = Handler(Looper.getMainLooper())
         val cpuText = panel.findViewById<TextView>(R.id.cpu_usage_text)
-        val fpsText = panel.findViewById<TextView>(R.id.panel_fps_text)
-        val cpuText2 = panel.findViewById<TextView>(R.id.cpu_usage_text_2)
-        val fpsText2 = panel.findViewById<TextView>(R.id.panel_fps_text_2)
         val timeText = panel.findViewById<TextView>(R.id.header_time)
         val batteryText = panel.findViewById<TextView>(R.id.header_battery)
-        lastPanelFpsMaxTimestamp = 0L
 
         val runnable = object : Runnable {
             override fun run() {
@@ -491,13 +420,9 @@ class OverlayBubbleService : Service() {
 
                 thread {
                     val cpuPercent = readCpuUsagePercent()
-                    val fps = readRealFpsOnce()
                     Handler(Looper.getMainLooper()).post {
                         if (panelStatsRunning) {
                             cpuText.text = if (cpuPercent >= 0) "$cpuPercent%" else "--%"
-                            fpsText.text = if (fps >= 0) "$fps" else "--"
-                            cpuText2.text = cpuText.text
-                            fpsText2.text = fpsText.text
                         }
                     }
                 }
@@ -540,73 +465,6 @@ class OverlayBubbleService : Service() {
         }
     }
 
-    /** Đọc FPS thật 1 lần (đồng bộ, chạy trong thread nền) — dùng chung logic với pollRealFps
-     *  nhưng trả về giá trị thay vì tự cập nhật view, để ghép chung 1 vòng poll với CPU%. */
-    private fun readRealFpsOnce(): Int {
-        val pkg = targetPackage ?: return -1
-        return try {
-            val result = com.topjohnwu.superuser.Shell.cmd("dumpsys gfxinfo $pkg framestats").exec()
-            if (!result.isSuccess) return -1
-            val lines = result.out
-            val startIdx = lines.indexOfFirst { it.contains("PROFILEDATA") }
-            if (startIdx < 0) return -1
-            val vsyncTimestamps = mutableListOf<Long>()
-            for (i in (startIdx + 2) until lines.size) {
-                val line = lines[i]
-                if (line.contains("PROFILEDATA")) break
-                val cols = line.split(",")
-                if (cols.size > 1) cols[1].trim().toLongOrNull()?.let { vsyncTimestamps.add(it) }
-            }
-            if (vsyncTimestamps.isEmpty()) return -1
-            val maxTs = vsyncTimestamps.max()
-            val oneSecondAgo = maxTs - 1_000_000_000L
-            vsyncTimestamps.count { it in (oneSecondAgo + 1)..maxTs }
-        } catch (e: Exception) {
-            -1
-        }
-    }
-
-    private fun pollRealFps() {
-        val pkg = targetPackage ?: return
-        thread {
-            try {
-                val result = com.topjohnwu.superuser.Shell.cmd("dumpsys gfxinfo $pkg framestats").exec()
-                if (!result.isSuccess) return@thread
-                val lines = result.out
-                val startIdx = lines.indexOfFirst { it.contains("PROFILEDATA") }
-                if (startIdx < 0) return@thread
-                // Dòng ngay sau PROFILEDATA đầu tiên là header cột, các dòng sau là số liệu
-                val vsyncTimestamps = mutableListOf<Long>()
-                for (i in (startIdx + 2) until lines.size) {
-                    val line = lines[i]
-                    if (line.contains("PROFILEDATA")) break
-                    val cols = line.split(",")
-                    // Cột thứ 2 (index 1) là Vsync timestamp (nanosecond)
-                    if (cols.size > 1) {
-                        cols[1].trim().toLongOrNull()?.let { vsyncTimestamps.add(it) }
-                    }
-                }
-                if (vsyncTimestamps.isEmpty()) return@thread
-                val maxTs = vsyncTimestamps.max()
-                if (maxTs <= lastMaxTimestampNanos) {
-                    // Game không vẽ frame mới nào trong 1 giây qua (đứng hình/không ở foreground thật)
-                    lastMaxTimestampNanos = maxTs
-                    Handler(Looper.getMainLooper()).post { fpsView?.text = "0 FPS" }
-                    return@thread
-                }
-                val oneSecondAgo = maxTs - 1_000_000_000L
-                val framesInLastSecond = vsyncTimestamps.count { it in (oneSecondAgo + 1)..maxTs }
-                lastMaxTimestampNanos = maxTs
-                Handler(Looper.getMainLooper()).post {
-                    fpsView?.text = "$framesInLastSecond FPS"
-                }
-            } catch (e: Exception) {
-                // Thiếu quyền root hoặc app không render gì (dumpsys rỗng) — bỏ qua lần đọc này
-            }
-        }
-    }
-
-    /** Overlay chống chạm nhầm 2 góc trên màn hình — chặn thao tác vô tình khi cầm máy chơi game ngang. */
     private fun showTouchLock() {
         if (touchLockTopLeft != null) return
         val size = 90
@@ -647,6 +505,8 @@ class OverlayBubbleService : Service() {
         touchLockTopRight = null
     }
 
+    /** Giữ WiFi radio ở chế độ độ trễ thấp (API chính thức Android dành cho game/VoIP),
+     *  tránh việc chip WiFi tự vào chế độ tiết kiệm điện gây tăng ping/giật khi chơi online. */
     /** Dãy icon đa nhiệm nhanh trong panel — bấm để thử mở app dạng cửa sổ nhỏ nổi (freeform),
      *  máy/ROM không hỗ trợ freeform sẽ tự mở toàn màn hình như bình thường. */
     private fun populateQuickApps(panel: View) {
@@ -686,14 +546,11 @@ class OverlayBubbleService : Service() {
             launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(launchIntent, options.toBundle())
         } catch (e: Exception) {
-            // Máy/ROM không hỗ trợ launchBounds/freeform — mở bình thường
             launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(launchIntent)
         }
     }
 
-    /** Giữ WiFi radio ở chế độ độ trễ thấp (API chính thức Android dành cho game/VoIP),
-     *  tránh việc chip WiFi tự vào chế độ tiết kiệm điện gây tăng ping/giật khi chơi online. */
     private fun enableWifiOptimization() {
         if (wifiLock != null) return
         try {
@@ -719,7 +576,6 @@ class OverlayBubbleService : Service() {
 
     override fun onDestroy() {
         stopPanelStatsPolling()
-        hideFpsOverlay()
         hideTouchLock()
         disableWifiOptimization()
         tabView?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }
