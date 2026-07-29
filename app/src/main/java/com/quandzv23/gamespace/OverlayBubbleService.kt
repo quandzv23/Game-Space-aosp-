@@ -553,20 +553,39 @@ class OverlayBubbleService : Service() {
 
     private fun enableWifiOptimization() {
         if (wifiLock != null) return
-        try {
-            val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
-            val mode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                android.net.wifi.WifiManager.WIFI_MODE_FULL_LOW_LATENCY
-            } else {
-                android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF
+        val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+
+        var lastError = ""
+        fun tryAcquire(mode: Int): Boolean {
+            return try {
+                val lock = wm.createWifiLock(mode, "qspace:wifi_optimize")
+                lock.setReferenceCounted(false)
+                lock.acquire()
+                wifiLock = lock
+                true
+            } catch (e: Exception) {
+                lastError = "${e.javaClass.simpleName} - ${e.message}"
+                false
             }
-            val lock = wm.createWifiLock(mode, "qspace:wifi_optimize")
-            lock.setReferenceCounted(false)
-            lock.acquire()
-            wifiLock = lock
-        } catch (e: Exception) {
-            Toast.makeText(this, "Không bật được tối ưu WiFi", Toast.LENGTH_SHORT).show()
         }
+
+        val preferredMode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            android.net.wifi.WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+        } else {
+            android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF
+        }
+
+        if (tryAcquire(preferredMode)) return
+
+        // Máy/ROM từ chối chế độ low-latency — thử lại bằng chế độ cũ hơn, tương thích rộng hơn
+        if (preferredMode != android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF &&
+            tryAcquire(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF)
+        ) {
+            Toast.makeText(this, "Dùng chế độ WiFi tương thích (máy không hỗ trợ low-latency)", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        Toast.makeText(this, "WiFi lỗi: $lastError", Toast.LENGTH_LONG).show()
     }
 
     private fun disableWifiOptimization() {
