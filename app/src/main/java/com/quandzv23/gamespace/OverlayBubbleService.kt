@@ -50,23 +50,50 @@ class OverlayBubbleService : Service() {
     private var touchLockTopLeft: View? = null
     private var touchLockTopRight: View? = null
 
+    // Dock đa nhiệm nổi — cột icon tròn dọc theo cạnh màn hình, kiểu Edge Panel
+    private var dockView: View? = null
+    private var dockParams: WindowManager.LayoutParams? = null
+
     // Tối ưu WiFi — giữ radio ở chế độ độ trễ thấp, tránh tụt ping do tiết kiệm pin
     private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
 
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        refreshScreenMetrics()
+        addEdgeTab()
+    }
+
+    private fun refreshScreenMetrics() {
         val dm = DisplayMetrics()
         windowManager.defaultDisplay.getMetrics(dm)
         screenWidthPx = dm.widthPixels
         screenHeightPx = dm.heightPixels
         panelWidthPx = (272 * dm.density).toInt()
-        addEdgeTab()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        intent?.getStringExtra("target_package")?.let { targetPackage = it }
+        val newPackage = intent?.getStringExtra("target_package")
+        if (newPackage != null && newPackage != targetPackage) {
+            targetPackage = newPackage
+            // Đo lại kích thước màn hình mỗi lần vào game MỚI — Service chỉ tạo (onCreate) một
+            // lần duy nhất, các lần vào game sau chỉ chạy lại onStartCommand, nên nếu không đo
+            // lại ở đây, kích thước cũ (đo từ lần đầu) sẽ dùng mãi mãi và có thể sai lệch nếu
+            // thanh điều hướng/thanh trạng thái ẩn-hiện khác nhau giữa các lần.
+            refreshScreenMetrics()
+            resetTabToEdge()
+        }
         return START_STICKY
+    }
+
+    /** Đưa thanh vuốt về đúng mép trái màn hình theo kích thước vừa đo lại, đóng panel nếu đang mở. */
+    private fun resetTabToEdge() {
+        if (isPanelOpen) snapPanelClosed()
+        tabParams?.let {
+            it.x = 0
+            it.y = it.y.coerceIn(0, screenHeightPx - 150)
+            tabView?.let { tv -> try { windowManager.updateViewLayout(tv, it) } catch (e: Exception) { } }
+        }
     }
 
     private fun addEdgeTab() {
@@ -82,7 +109,7 @@ class OverlayBubbleService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = screenWidthPx
+            x = 0
             y = 260
         }
         tabParams = params
@@ -121,15 +148,20 @@ class OverlayBubbleService : Service() {
                             tabView?.let { tv -> windowManager.updateViewLayout(tv, it) }
                         }
                     } else if (horizontalDrag) {
-                        // Kéo ngang: mở/đóng panel theo tay
-                        val openX = screenWidthPx - panelWidthPx
-                        val hiddenX = screenWidthPx
+                        // Kéo ngang: panel VÀ thanh vuốt cùng trượt theo tay (thanh vuốt luôn
+                        // bám sát mép phải của panel, giống tay cầm gắn liền cửa kéo thật)
+                        val hiddenX = -panelWidthPx
+                        val openX = 0
                         var newX = (hiddenX + dx).toInt()
-                        if (newX < openX) newX = openX
-                        if (newX > hiddenX) newX = hiddenX
+                        if (newX < hiddenX) newX = hiddenX
+                        if (newX > openX) newX = openX
                         panelParams?.let {
                             it.x = newX
                             panelView?.let { pv -> windowManager.updateViewLayout(pv, it) }
+                        }
+                        tabParams?.let {
+                            it.x = newX
+                            tabView?.let { tv -> windowManager.updateViewLayout(tv, it) }
                         }
                     }
                     true
@@ -139,7 +171,7 @@ class OverlayBubbleService : Service() {
                     when {
                         verticalDrag -> { /* đã di chuyển xong, giữ nguyên vị trí mới */ }
                         horizontalDrag -> {
-                            val openedEnough = dx < -panelWidthPx / 2f
+                            val openedEnough = dx > panelWidthPx / 2f
                             if (openedEnough) snapPanelOpen() else snapPanelClosed()
                         }
                         else -> togglePanel() // chạm nhẹ không kéo: bật/tắt panel
@@ -167,7 +199,7 @@ class OverlayBubbleService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = screenWidthPx
+            x = -panelWidthPx
             y = 200
         }
         panelParams = params
@@ -210,21 +242,37 @@ class OverlayBubbleService : Service() {
             if (enabled) enableWifiOptimization() else disableWifiOptimization()
         }
 
-        val quickAppsScroll = view.findViewById<View>(R.id.quick_apps_scroll)
-        quickAppsScroll.visibility = if (SettingsStore.isMultitaskRowVisible(this)) View.VISIBLE else View.GONE
         setupToggleRow(
             view.findViewById(R.id.row_multitask),
             view.findViewById(R.id.multitask_state),
             SettingsStore.isMultitaskRowVisible(this)
         ) { visible ->
             SettingsStore.setMultitaskRowVisible(this, visible)
-            quickAppsScroll.visibility = if (visible) View.VISIBLE else View.GONE
+            if (visible) showMultitaskDock() else hideMultitaskDock()
         }
-        populateQuickApps(view)
+
+        val clearRamTile = view.findViewById<View>(R.id.row_clear_ram)
+        val clearRamState = view.findViewById<TextView>(R.id.clear_ram_state)
+        clearRamTile.setOnClickListener {
+            clearRamState.text = "Đang dọn..."
+            thread {
+                val count = PerfProfileManager.clearBackgroundApps(packageName, targetPackage)
+                Handler(Looper.getMainLooper()).post {
+                    if (count >= 0) {
+                        playTilePunch(clearRamTile)
+                        clearRamState.text = "Đã dọn $count app"
+                    } else {
+                        playTileShake(clearRamTile)
+                        clearRamState.text = "Lỗi — cần root"
+                    }
+                }
+            }
+        }
 
         // Áp dụng lại trạng thái tiện ích đã lưu mỗi lần panel/overlay được tạo lại
         if (SettingsStore.isTouchLockEnabled(this)) showTouchLock()
         if (SettingsStore.isWifiOptimizeEnabled(this)) enableWifiOptimization()
+        if (SettingsStore.isMultitaskRowVisible(this)) showMultitaskDock()
 
         updateProfileHighlight(view)
         windowManager.addView(view, params)
@@ -237,14 +285,13 @@ class OverlayBubbleService : Service() {
 
     private fun snapPanelOpen() {
         ensurePanelAdded()
-        val targetX = screenWidthPx - panelWidthPx
-        animatePanelX(targetX) { isPanelOpen = true }
+        animatePanelX(0) { isPanelOpen = true }
     }
 
     private fun snapPanelClosed() {
         val pv = panelView ?: return
         stopPanelStatsPolling()
-        animatePanelX(screenWidthPx) {
+        animatePanelX(-panelWidthPx) {
             isPanelOpen = false
             try { windowManager.removeView(pv) } catch (e: Exception) { }
             panelView = null
@@ -259,8 +306,13 @@ class OverlayBubbleService : Service() {
         ValueAnimator.ofInt(startX, targetX).apply {
             duration = 220
             addUpdateListener {
-                params.x = it.animatedValue as Int
+                val x = it.animatedValue as Int
+                params.x = x
                 try { windowManager.updateViewLayout(pv, params) } catch (e: Exception) { }
+                tabParams?.let { tp ->
+                    tp.x = x
+                    tabView?.let { tv -> try { windowManager.updateViewLayout(tv, tp) } catch (e: Exception) { } }
+                }
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
@@ -509,27 +561,55 @@ class OverlayBubbleService : Service() {
      *  tránh việc chip WiFi tự vào chế độ tiết kiệm điện gây tăng ping/giật khi chơi online. */
     /** Dãy icon đa nhiệm nhanh trong panel — bấm để thử mở app dạng cửa sổ nhỏ nổi (freeform),
      *  máy/ROM không hỗ trợ freeform sẽ tự mở toàn màn hình như bình thường. */
-    private fun populateQuickApps(panel: View) {
-        val row = panel.findViewById<android.widget.LinearLayout>(R.id.quick_apps_row)
-        row.removeAllViews()
+    /** Dock nổi cột icon tròn dọc theo cạnh trái màn hình, kiểu Edge Panel — tách riêng khỏi
+     *  panel, luôn hiện (kể cả khi đã đóng panel) khi tính năng Đa nhiệm đang bật. */
+    private fun showMultitaskDock() {
+        if (dockView != null) return
+        val apps = SettingsStore.getQuickApps(this).toList().sorted()
+        if (apps.isEmpty()) {
+            Toast.makeText(this, "Chưa có app đa nhiệm — thêm trong màn hình Qspace", Toast.LENGTH_LONG).show()
+            SettingsStore.setMultitaskRowVisible(this, false)
+            return
+        }
+
+        val view = LayoutInflater.from(this).inflate(R.layout.multitask_dock, null)
+        val container = view.findViewById<android.widget.LinearLayout>(R.id.multitask_dock_container)
         val pm = packageManager
-        for (pkg in SettingsStore.getQuickApps(this).toList().sorted()) {
-            val iconView = LayoutInflater.from(this).inflate(R.layout.item_quick_app, row, false)
-            val icon = iconView.findViewById<android.widget.ImageView>(R.id.quick_app_icon)
+
+        for (pkg in apps) {
+            val iconView = LayoutInflater.from(this).inflate(R.layout.item_multitask_dock_icon, container, false)
+            val icon = iconView.findViewById<android.widget.ImageView>(R.id.dock_app_icon)
             try {
                 icon.setImageDrawable(pm.getApplicationIcon(pkg))
             } catch (e: Exception) { }
-            icon.setOnClickListener { launchQuickApp(pkg) }
-            row.addView(iconView)
-        }
-        if (row.childCount == 0) {
-            val empty = TextView(this).apply {
-                text = "Chưa có app — thêm trong Qspace"
-                setTextColor(resources.getColor(R.color.text_secondary, theme))
-                textSize = 11f
+            icon.setOnClickListener {
+                playTilePunch(iconView)
+                launchQuickApp(pkg)
             }
-            row.addView(empty)
+            container.addView(iconView)
         }
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 0
+            y = 380
+        }
+        dockView = view
+        dockParams = params
+        windowManager.addView(view, params)
+    }
+
+    private fun hideMultitaskDock() {
+        dockView?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }
+        dockView = null
+        dockParams = null
     }
 
     private fun launchQuickApp(pkg: String) {
@@ -596,6 +676,7 @@ class OverlayBubbleService : Service() {
     override fun onDestroy() {
         stopPanelStatsPolling()
         hideTouchLock()
+        hideMultitaskDock()
         disableWifiOptimization()
         tabView?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }
         panelView?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }

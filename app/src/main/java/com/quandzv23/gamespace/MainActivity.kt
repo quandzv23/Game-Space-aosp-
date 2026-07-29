@@ -211,9 +211,13 @@ class MainActivity : AppCompatActivity() {
         for (pkg in SettingsStore.getQuickApps(this).toList().sorted()) {
             val itemView = layoutInflater.inflate(R.layout.item_quick_app, row, false)
             val icon = itemView.findViewById<android.widget.ImageView>(R.id.quick_app_icon)
+            val name = itemView.findViewById<TextView>(R.id.quick_app_name)
             try {
-                icon.setImageDrawable(pm.getApplicationIcon(pkg))
+                val appInfo = pm.getApplicationInfo(pkg, 0)
+                icon.setImageDrawable(pm.getApplicationIcon(appInfo))
+                name.text = pm.getApplicationLabel(appInfo).toString()
             } catch (e: PackageManager.NameNotFoundException) {
+                name.text = pkg
             }
             itemView.setOnLongClickListener {
                 SettingsStore.removeQuickApp(this, pkg)

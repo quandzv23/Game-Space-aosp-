@@ -25,6 +25,36 @@ object PerfProfileManager {
 
     enum class Profile { BALANCED, PERFORMANCE, BATTERY_SAVER }
 
+    /** Danh sách app luôn được giữ lại khi "Dọn RAM" — nhạc/media hay chạy nền, tắt đi sẽ gián
+     *  đoạn nhạc đang phát. Có thể mở rộng thêm nếu thiếu app nào người dùng hay dùng. */
+    private val keepAlivePackages = setOf(
+        "com.google.android.youtube",
+        "com.google.android.apps.youtube.music",
+        "com.spotify.music",
+        "com.vng.zingmp3",
+        "com.nct.nhaccuatui",
+        "com.soundcloud.android",
+        "com.zing.mp3"
+    )
+
+    /** Dọn RAM: force-stop các app bên thứ 3 đang cài (trừ app nhạc/YouTube, chính Qspace,
+     *  và game đang chơi). Trả về số lượng app đã tắt, hoặc -1 nếu lệnh thất bại (thiếu root). */
+    fun clearBackgroundApps(ownPackage: String, currentGamePackage: String?): Int {
+        val listResult = Shell.cmd("pm list packages -3").exec()
+        if (!listResult.isSuccess) return -1
+
+        val packages = listResult.out
+            .mapNotNull { line -> line.removePrefix("package:").trim().takeIf { it.isNotEmpty() } }
+            .filter { it != ownPackage && it != currentGamePackage && it !in keepAlivePackages }
+
+        var stoppedCount = 0
+        for (pkg in packages) {
+            val result = Shell.cmd("am force-stop $pkg").exec()
+            if (result.isSuccess) stoppedCount++
+        }
+        return stoppedCount
+    }
+
     /** Kiểm tra thật xem app có quyền root dùng được không (không chỉ "đã cài KernelSU"). */
     fun hasRootAccess(): Boolean {
         return try {
