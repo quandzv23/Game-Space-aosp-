@@ -331,7 +331,7 @@
                 android:layout_marginTop="2dp" android:text="Đa nhiệm"
                 android:textColor="@color/text_primary" android:textSize="8sp" />
             <TextView android:id="@+id/multitask_state" android:layout_width="wrap_content"
-                android:layout_height="wrap_content" android:text="Tắt"
+                android:layout_height="wrap_content" android:text="0 app"
                 android:textColor="@color/text_secondary" android:textSize="7sp" />
         </LinearLayout>
 

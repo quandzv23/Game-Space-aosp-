@@ -82,6 +82,8 @@ class OverlayBubbleService : Service() {
             // thanh điều hướng/thanh trạng thái ẩn-hiện khác nhau giữa các lần.
             refreshScreenMetrics()
             resetTabToEdge()
+            hideMultitaskDock()
+            showMultitaskDock()
         }
         return START_STICKY
     }
@@ -242,14 +244,8 @@ class OverlayBubbleService : Service() {
             if (enabled) enableWifiOptimization() else disableWifiOptimization()
         }
 
-        setupToggleRow(
-            view.findViewById(R.id.row_multitask),
-            view.findViewById(R.id.multitask_state),
-            SettingsStore.isMultitaskRowVisible(this)
-        ) { visible ->
-            SettingsStore.setMultitaskRowVisible(this, visible)
-            if (visible) showMultitaskDock() else hideMultitaskDock()
-        }
+        val multitaskCount = SettingsStore.getQuickApps(this).size
+        view.findViewById<TextView>(R.id.multitask_state).text = "$multitaskCount app"
 
         val clearRamTile = view.findViewById<View>(R.id.row_clear_ram)
         val clearRamState = view.findViewById<TextView>(R.id.clear_ram_state)
@@ -272,7 +268,6 @@ class OverlayBubbleService : Service() {
         // Áp dụng lại trạng thái tiện ích đã lưu mỗi lần panel/overlay được tạo lại
         if (SettingsStore.isTouchLockEnabled(this)) showTouchLock()
         if (SettingsStore.isWifiOptimizeEnabled(this)) enableWifiOptimization()
-        if (SettingsStore.isMultitaskRowVisible(this)) showMultitaskDock()
 
         updateProfileHighlight(view)
         windowManager.addView(view, params)
@@ -566,11 +561,7 @@ class OverlayBubbleService : Service() {
     private fun showMultitaskDock() {
         if (dockView != null) return
         val apps = SettingsStore.getQuickApps(this).toList().sorted()
-        if (apps.isEmpty()) {
-            Toast.makeText(this, "Chưa có app đa nhiệm — thêm trong màn hình Qspace", Toast.LENGTH_LONG).show()
-            SettingsStore.setMultitaskRowVisible(this, false)
-            return
-        }
+        if (apps.isEmpty()) return
 
         val view = LayoutInflater.from(this).inflate(R.layout.multitask_dock, null)
         val container = view.findViewById<android.widget.LinearLayout>(R.id.multitask_dock_container)

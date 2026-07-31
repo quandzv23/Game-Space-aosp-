@@ -90,7 +90,7 @@ class GameWatcherService : Service() {
             PerfProfileManager.applyGameProfile(PerfProfileManager.Profile.PERFORMANCE)
             showEnterAnimation()
             showBubble()
-        } else if (!isGame && currentGamePackage != null) {
+        } else if (!isGame && currentGamePackage != null && !SettingsStore.getQuickApps(this).contains(lastPackage)) {
             currentGamePackage = null
             PerfProfileManager.restoreDefault()
             hideBubble()
