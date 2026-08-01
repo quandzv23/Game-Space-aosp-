@@ -1,5 +1,7 @@
 package com.quandzv23.gamespace
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.app.AppOpsManager
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -156,22 +158,65 @@ class MainActivity : AppCompatActivity() {
 
     /** Animation nhẹ lúc vừa mở app: header + card trượt lên và mờ dần vào. */
     private fun playEntranceAnimation() {
-        val content = findViewById<android.view.View>(R.id.main_content)
+        val overlay = findViewById<android.view.View>(R.id.open_anim_overlay)
+        val badge = findViewById<android.view.View>(R.id.open_logo_badge)
+        val title = findViewById<android.view.View>(R.id.open_logo_title)
+        val rings = listOf(
+            findViewById<android.view.View>(R.id.open_ring1),
+            findViewById<android.view.View>(R.id.open_ring2),
+            findViewById<android.view.View>(R.id.open_ring3)
+        )
 
-        content.visibility = android.view.View.INVISIBLE
-        content.post {
-            val cx = content.width / 2
-            val cy = content.height / 2
-            val finalRadius = kotlin.math.hypot(cx.toDouble(), cy.toDouble()).toFloat()
-
-            content.visibility = android.view.View.VISIBLE
-            val reveal = android.view.ViewAnimationUtils.createCircularReveal(
-                content, cx, cy, 0f, finalRadius
-            )
-            reveal.duration = 480
-            reveal.interpolator = DecelerateInterpolator(1.4f)
-            reveal.start()
+        // Logo "bụp" vào dứt khoát: từ to hơn 1.3x co lại 1x, không bounce
+        val badgeScaleX = ObjectAnimator.ofFloat(badge, "scaleX", 1.3f, 1f)
+        val badgeScaleY = ObjectAnimator.ofFloat(badge, "scaleY", 1.3f, 1f)
+        val badgeAlpha = ObjectAnimator.ofFloat(badge, "alpha", 0f, 1f)
+        val badgeSet = AnimatorSet().apply {
+            playTogether(badgeScaleX, badgeScaleY, badgeAlpha)
+            duration = 220
+            interpolator = DecelerateInterpolator(2.2f)
         }
+
+        val titleAlpha = ObjectAnimator.ofFloat(title, "alpha", 0f, 1f).apply { duration = 200 }
+
+        // 3 vòng sóng xung bung ra lệch nhịp quanh logo
+        val ringAnims = rings.mapIndexed { index, ring ->
+            val scaleX = ObjectAnimator.ofFloat(ring, "scaleX", 0.3f, 2.6f)
+            val scaleY = ObjectAnimator.ofFloat(ring, "scaleY", 0.3f, 2.6f)
+            val alpha = ObjectAnimator.ofFloat(ring, "alpha", 0.7f, 0f)
+            AnimatorSet().apply {
+                playTogether(scaleX, scaleY, alpha)
+                duration = 620
+                startDelay = 100L + index * 150L
+                interpolator = DecelerateInterpolator()
+            }
+        }
+
+        val masterSet = AnimatorSet()
+        val allAnims = mutableListOf<android.animation.Animator>(badgeSet, titleAlpha)
+        allAnims.addAll(ringAnims)
+        masterSet.playTogether(allAnims)
+        masterSet.start()
+
+        // Sau khi hiệu ứng chạy xong, khép tròn (iris) lộ giao diện thật ra
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            revealRealUi(overlay)
+        }, 850)
+    }
+
+    private fun revealRealUi(overlay: android.view.View) {
+        val cx = overlay.width / 2
+        val cy = overlay.height / 2
+        val startRadius = kotlin.math.hypot(cx.toDouble(), cy.toDouble()).toFloat()
+        val anim = android.view.ViewAnimationUtils.createCircularReveal(overlay, cx, cy, startRadius, 0f)
+        anim.duration = 360
+        anim.interpolator = android.view.animation.AccelerateInterpolator()
+        anim.addListener(object : android.animation.AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: android.animation.Animator) {
+                overlay.visibility = android.view.View.GONE
+            }
+        })
+        anim.start()
     }
 
     /** Quét thật xem app có quyền root dùng được không, chạy ở thread nền vì Shell.getShell() có thể chặn. */

@@ -35,17 +35,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".GameEnterSplashActivity"
-            android:theme="@style/Theme.GameSpace.Splash"
-            android:excludeFromRecents="true"
-            android:noHistory="true"
-            android:launchMode="singleInstance"
-            android:taskAffinity=""
-            android:screenOrientation="landscape"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
-
         <service
             android:name=".GameWatcherService"
             android:foregroundServiceType="specialUse"

@@ -13,7 +13,6 @@ import android.os.Looper
 import android.telecom.TelecomManager
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
-import kotlin.concurrent.thread
 
 /**
  * Foreground service chạy nền, poll app đang hiển thị mỗi giây qua
@@ -26,10 +25,6 @@ class GameWatcherService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var currentGamePackage: String? = null
     private var bubbleShown = false
-
-    // Game nào còn tiến trình sống thật trong nền (không phải bị kill hẳn) thì lần sau vào lại
-    // sẽ bỏ qua animation splash — chỉ hiện đúng 1 lần cho một phiên chơi thật sự.
-    private val stillAliveInBackground = mutableSetOf<String>()
 
     @Suppress("DEPRECATION")
     private val phoneStateListener = object : PhoneStateListener() {
@@ -93,31 +88,12 @@ class GameWatcherService : Service() {
         if (isGame && lastPackage != currentGamePackage) {
             currentGamePackage = lastPackage
             PerfProfileManager.applyGameProfile(PerfProfileManager.Profile.PERFORMANCE)
-            if (lastPackage !in stillAliveInBackground) {
-                showEnterAnimation()
-            }
             showBubble()
         } else if (!isGame && currentGamePackage != null && !SettingsStore.getQuickApps(this).contains(lastPackage)) {
-            // Kiểm tra qua root xem tiến trình game có còn sống thật không (chỉ bị đưa xuống
-            // nền chứ chưa bị kill) — nếu còn sống, lần sau vào lại sẽ không hiện splash nữa.
-            val pkg = currentGamePackage!!
-            thread {
-                val stillAlive = PerfProfileManager.isProcessAlive(pkg)
-                if (stillAlive) stillAliveInBackground.add(pkg) else stillAliveInBackground.remove(pkg)
-            }
             currentGamePackage = null
             PerfProfileManager.restoreDefault()
             hideBubble()
         }
-    }
-
-    private fun showEnterAnimation() {
-        val intent = Intent(this, GameEnterSplashActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                Intent.FLAG_ACTIVITY_NO_ANIMATION
-        }
-        startActivity(intent)
     }
 
     private fun showBubble() {

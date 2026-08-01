@@ -87,7 +87,7 @@
 
             <!-- Cột trái: danh sách game -->
             <LinearLayout
-                android:layout_width="230dp"
+                android:layout_width="250dp"
                 android:layout_height="match_parent"
                 android:orientation="vertical"
                 android:paddingTop="12dp">
@@ -111,15 +111,14 @@
 
                     <TextView
                         android:id="@+id/btn_add_game"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                        android:layout_width="34dp"
+                        android:layout_height="34dp"
                         android:background="@drawable/pill_button_amber"
-                        android:paddingHorizontal="12dp"
-                        android:paddingVertical="6dp"
+                        android:gravity="center"
                         android:text="+"
                         android:textColor="#0B0E1A"
                         android:textStyle="bold"
-                        android:textSize="13sp" />
+                        android:textSize="20sp" />
 
                 </LinearLayout>
 
@@ -302,11 +301,13 @@
 
                     <TextView
                         android:id="@+id/btn_add_quick_app"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                        android:layout_width="34dp"
+                        android:layout_height="34dp"
+                        android:background="@drawable/tile_bg_inactive"
+                        android:gravity="center"
                         android:text="+"
                         android:textColor="@color/accent_cyan"
-                        android:textSize="16sp"
+                        android:textSize="20sp"
                         android:textStyle="bold" />
 
                 </LinearLayout>
@@ -316,5 +317,78 @@
         </LinearLayout>
 
     </LinearLayout>
+
+    <!-- Overlay animation lúc mở app: sóng xung + logo bụp vào + khép tròn lộ giao diện thật -->
+    <FrameLayout
+        android:id="@+id/open_anim_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/bg_deep">
+
+        <View
+            android:id="@+id/open_ring1"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_gravity="center"
+            android:background="@drawable/shock_ring"
+            android:alpha="0" />
+
+        <View
+            android:id="@+id/open_ring2"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_gravity="center"
+            android:background="@drawable/shock_ring"
+            android:alpha="0" />
+
+        <View
+            android:id="@+id/open_ring3"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_gravity="center"
+            android:background="@drawable/shock_ring"
+            android:alpha="0" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <FrameLayout
+                android:id="@+id/open_logo_badge"
+                android:layout_width="86dp"
+                android:layout_height="86dp"
+                android:background="@drawable/qspace_logo_bg"
+                android:scaleX="1.3"
+                android:scaleY="1.3"
+                android:alpha="0">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="Q"
+                    android:textColor="@color/bg_deep"
+                    android:textSize="40sp"
+                    android:textStyle="bold" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/open_logo_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="QSPACE"
+                android:textColor="@color/text_primary"
+                android:textSize="22sp"
+                android:letterSpacing="0.3"
+                android:textStyle="bold"
+                android:alpha="0" />
+
+        </LinearLayout>
+
+    </FrameLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

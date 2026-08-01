@@ -84,7 +84,9 @@ object PerfProfileManager {
     /** Đọc % tải GPU thật qua /sys/kernel/gpu/gpu_busy — node đã xác nhận có trên A21s. */
     fun readGpuUsagePercent(): Int {
         val value = readSysfs("/sys/kernel/gpu/gpu_busy") ?: return -1
-        return value.trim().toIntOrNull()?.coerceIn(0, 100) ?: -1
+        // Một số kernel trả về kèm "%" hoặc chữ khác (vd "12 %", "busy: 12") — lọc lấy số đầu tiên
+        val digitsOnly = Regex("\\d+").find(value)?.value ?: return -1
+        return digitsOnly.toIntOrNull()?.coerceIn(0, 100) ?: -1
     }
 
     /** Kiểm tra thật xem app có quyền root dùng được không (không chỉ "đã cài KernelSU"). */
