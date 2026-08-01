@@ -1,7 +1,5 @@
 package com.quandzv23.gamespace
 
-import android.animation.AnimatorSet
-import android.animation.ObjectAnimator
 import android.app.AppOpsManager
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -158,22 +156,21 @@ class MainActivity : AppCompatActivity() {
 
     /** Animation nhẹ lúc vừa mở app: header + card trượt lên và mờ dần vào. */
     private fun playEntranceAnimation() {
-        val header = findViewById<android.view.View>(R.id.header_container)
         val content = findViewById<android.view.View>(R.id.main_content)
 
-        header.alpha = 0f
-        header.translationY = 40f
-        content.alpha = 0f
+        content.visibility = android.view.View.INVISIBLE
+        content.post {
+            val cx = content.width / 2
+            val cy = content.height / 2
+            val finalRadius = kotlin.math.hypot(cx.toDouble(), cy.toDouble()).toFloat()
 
-        val headerAlpha = ObjectAnimator.ofFloat(header, "alpha", 0f, 1f)
-        val headerSlide = ObjectAnimator.ofFloat(header, "translationY", 40f, 0f)
-        val contentAlpha = ObjectAnimator.ofFloat(content, "alpha", 0f, 1f)
-
-        AnimatorSet().apply {
-            playTogether(headerAlpha, headerSlide, contentAlpha)
-            duration = 380
-            interpolator = DecelerateInterpolator(1.6f)
-            start()
+            content.visibility = android.view.View.VISIBLE
+            val reveal = android.view.ViewAnimationUtils.createCircularReveal(
+                content, cx, cy, 0f, finalRadius
+            )
+            reveal.duration = 480
+            reveal.interpolator = DecelerateInterpolator(1.4f)
+            reveal.start()
         }
     }
 
