@@ -244,9 +244,6 @@ class OverlayBubbleService : Service() {
             if (enabled) enableWifiOptimization() else disableWifiOptimization()
         }
 
-        val multitaskCount = SettingsStore.getQuickApps(this).size
-        view.findViewById<TextView>(R.id.multitask_state).text = "$multitaskCount app"
-
         val clearRamTile = view.findViewById<View>(R.id.row_clear_ram)
         val clearRamState = view.findViewById<TextView>(R.id.clear_ram_state)
         clearRamTile.setOnClickListener {
@@ -448,6 +445,7 @@ class OverlayBubbleService : Service() {
         panelStatsRunning = true
         panelStatsHandler = Handler(Looper.getMainLooper())
         val cpuText = panel.findViewById<TextView>(R.id.cpu_usage_text)
+        val gpuText = panel.findViewById<TextView>(R.id.gpu_usage_text)
         val timeText = panel.findViewById<TextView>(R.id.header_time)
         val batteryText = panel.findViewById<TextView>(R.id.header_battery)
 
@@ -466,10 +464,12 @@ class OverlayBubbleService : Service() {
                 } catch (e: Exception) { }
 
                 thread {
-                    val cpuPercent = readCpuUsagePercent()
+                    val cpuPercent = PerfProfileManager.readCpuUsagePercent()
+                    val gpuPercent = PerfProfileManager.readGpuUsagePercent()
                     Handler(Looper.getMainLooper()).post {
                         if (panelStatsRunning) {
                             cpuText.text = if (cpuPercent >= 0) "$cpuPercent%" else "--%"
+                            gpuText.text = if (gpuPercent >= 0) "$gpuPercent%" else "--%"
                         }
                     }
                 }
@@ -487,31 +487,6 @@ class OverlayBubbleService : Service() {
 
     /** Đọc % sử dụng CPU tổng thật qua /proc/stat — lấy 2 lần đọc cách nhau 200ms rồi tính
      *  delta (busy-time / total-time), đúng cách Linux/top tính %CPU thật, không phải số giả. */
-    private fun readCpuUsagePercent(): Int {
-        try {
-            fun readStatLine(): LongArray? {
-                val result = com.topjohnwu.superuser.Shell.cmd("cat /proc/stat").exec()
-                if (!result.isSuccess) return null
-                val line = result.out.firstOrNull { it.startsWith("cpu ") } ?: return null
-                val parts = line.trim().split(Regex("\\s+")).drop(1).mapNotNull { it.toLongOrNull() }
-                if (parts.size < 4) return null
-                val idle = parts[3] + (parts.getOrElse(4) { 0L })
-                val total = parts.sum()
-                return longArrayOf(idle, total)
-            }
-            val first = readStatLine() ?: return -1
-            Thread.sleep(200)
-            val second = readStatLine() ?: return -1
-            val idleDelta = second[0] - first[0]
-            val totalDelta = second[1] - first[1]
-            if (totalDelta <= 0) return -1
-            val usage = (100 * (totalDelta - idleDelta) / totalDelta).toInt()
-            return usage.coerceIn(0, 100)
-        } catch (e: Exception) {
-            return -1
-        }
-    }
-
     private fun showTouchLock() {
         if (touchLockTopLeft != null) return
         val size = 90
@@ -561,7 +536,6 @@ class OverlayBubbleService : Service() {
     private fun showMultitaskDock() {
         if (dockView != null) return
         val apps = SettingsStore.getQuickApps(this).toList().sorted()
-        if (apps.isEmpty()) return
 
         val view = LayoutInflater.from(this).inflate(R.layout.multitask_dock, null)
         val container = view.findViewById<android.widget.LinearLayout>(R.id.multitask_dock_container)
@@ -580,6 +554,19 @@ class OverlayBubbleService : Service() {
             container.addView(iconView)
         }
 
+        // Dấu "+" luôn có mặt ở cuối dock — cho phép thêm app đa nhiệm ngay khi đang chơi,
+        // không cần thoát ra màn hình chính Qspace.
+        val addView = LayoutInflater.from(this).inflate(R.layout.item_multitask_dock_icon, container, false)
+        val addIcon = addView.findViewById<android.widget.ImageView>(R.id.dock_app_icon)
+        addIcon.setImageDrawable(null)
+        addIcon.setImageResource(android.R.drawable.ic_input_add)
+        addIcon.setColorFilter(android.graphics.Color.parseColor("#0B0E1A"))
+        addView.setOnClickListener {
+            playTilePunch(addView)
+            openAddQuickAppFlow()
+        }
+        container.addView(addView)
+
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -595,6 +582,16 @@ class OverlayBubbleService : Service() {
         dockView = view
         dockParams = params
         windowManager.addView(view, params)
+    }
+
+    /** Mở màn hình chính Qspace thẳng tới bước chọn app để thêm vào đa nhiệm — vì hộp thoại chọn
+     *  app cần cửa sổ Activity thật, không thể mở an toàn trực tiếp từ Service. */
+    private fun openAddQuickAppFlow() {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+            putExtra("open_add_quick_app", true)
+        }
+        startActivity(intent)
     }
 
     private fun hideMultitaskDock() {

@@ -7,9 +7,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import android.provider.Settings
 import android.view.animation.DecelerateInterpolator
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -22,6 +25,16 @@ import kotlin.concurrent.thread
 class MainActivity : AppCompatActivity() {
 
     private lateinit var adapter: GameAdapter
+    private var selectedGame: String? = null
+
+    private val statsHandler = Handler(Looper.getMainLooper())
+    private var statsRunning = false
+    private val statsRunnable = object : Runnable {
+        override fun run() {
+            refreshTopStats()
+            if (statsRunning) statsHandler.postDelayed(this, 2000)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,29 +45,35 @@ class MainActivity : AppCompatActivity() {
         scanRootAccess()
 
         val listView = findViewById<RecyclerView>(R.id.game_list)
-        var isCardMode = true
-        listView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        adapter = GameAdapter(this, packageManager, GameListStore.getGames(this).toList().sorted(), isCardMode) { pkg ->
-            GameListStore.removeGame(this, pkg)
-            refreshList()
-        }
+        listView.layoutManager = LinearLayoutManager(this)
+        val games = GameListStore.getGames(this).toList().sorted()
+        adapter = GameAdapter(
+            this, packageManager, games,
+            onRemove = { pkg ->
+                GameListStore.removeGame(this, pkg)
+                refreshList()
+            },
+            onSelect = { pkg -> selectGame(pkg) }
+        )
         listView.adapter = adapter
-
-        findViewById<TextView>(R.id.btn_toggle_view).setOnClickListener { toggleBtn ->
-            isCardMode = !isCardMode
-            listView.layoutManager = if (isCardMode) {
-                LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-            } else {
-                LinearLayoutManager(this)
-            }
-            adapter.setCardMode(isCardMode)
-            (toggleBtn as TextView).text = if (isCardMode) "☰ List" else "▦ Thẻ"
-        }
+        if (games.isNotEmpty()) selectGame(games.first())
 
         findViewById<TextView>(R.id.btn_add_game).setOnClickListener {
             showInstalledAppsPicker { pkg ->
                 GameListStore.addGame(this, pkg)
                 refreshList()
+                if (selectedGame == null) selectGame(pkg)
+            }
+        }
+
+        findViewById<TextView>(R.id.btn_start_game).setOnClickListener {
+            val pkg = selectedGame
+            if (pkg == null) {
+                Toast.makeText(this, "Chưa chọn game nào", Toast.LENGTH_SHORT).show()
+            } else {
+                val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
+                if (launchIntent != null) startActivity(launchIntent)
+                else Toast.makeText(this, "Không mở được app này", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -70,16 +89,69 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val statusText = findViewById<TextView>(R.id.status_text)
+        if (intent?.getBooleanExtra("open_add_quick_app", false) == true) {
+            showInstalledAppsPicker { pkg ->
+                SettingsStore.addQuickApp(this, pkg)
+                refreshQuickApps()
+            }
+        }
+
         val switch = findViewById<SwitchCompat>(R.id.switch_service)
         switch.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 startForegroundService(Intent(this, GameWatcherService::class.java))
-                statusText.text = "Đang theo dõi"
                 Toast.makeText(this, "Qspace đang chạy nền", Toast.LENGTH_SHORT).show()
             } else {
                 stopService(Intent(this, GameWatcherService::class.java))
-                statusText.text = "Chưa bật theo dõi"
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        statsRunning = true
+        statsHandler.post(statsRunnable)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        statsRunning = false
+        statsHandler.removeCallbacks(statsRunnable)
+    }
+
+    /** Đưa 1 game lên khung showcase trung tâm. */
+    private fun selectGame(pkg: String) {
+        selectedGame = pkg
+        val icon = findViewById<ImageView>(R.id.showcase_icon)
+        val backdrop = findViewById<ImageView>(R.id.showcase_backdrop)
+        val name = findViewById<TextView>(R.id.showcase_name)
+        try {
+            val appInfo = packageManager.getApplicationInfo(pkg, 0)
+            val drawable = packageManager.getApplicationIcon(appInfo)
+            icon.setImageDrawable(drawable)
+            backdrop.setImageDrawable(drawable)
+            name.text = packageManager.getApplicationLabel(appInfo).toString()
+        } catch (e: PackageManager.NameNotFoundException) {
+            icon.setImageDrawable(null)
+            backdrop.setImageDrawable(null)
+            name.text = pkg
+        }
+    }
+
+    /** Đọc pin/CPU%/GPU% thật, hiện ở thanh trên cùng — chỉ chạy khi màn hình đang hiển thị. */
+    private fun refreshTopStats() {
+        try {
+            val bm = getSystemService(BATTERY_SERVICE) as android.os.BatteryManager
+            val level = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            findViewById<TextView>(R.id.stat_battery).text = "🔋 $level%"
+        } catch (e: Exception) { }
+
+        thread {
+            val cpu = PerfProfileManager.readCpuUsagePercent()
+            val gpu = PerfProfileManager.readGpuUsagePercent()
+            runOnUiThread {
+                findViewById<TextView>(R.id.stat_cpu).text = if (cpu >= 0) "$cpu%" else "--%"
+                findViewById<TextView>(R.id.stat_gpu).text = if (gpu >= 0) "$gpu%" else "--%"
             }
         }
     }
@@ -109,9 +181,8 @@ class MainActivity : AppCompatActivity() {
     private fun scanRootAccess() {
         val icon = findViewById<TextView>(R.id.root_status_icon)
         val title = findViewById<TextView>(R.id.root_status_title)
-        val subtitle = findViewById<TextView>(R.id.root_status_subtitle)
 
-        title.text = "Đang quét quyền root..."
+        title.text = "Đang quét root..."
         icon.text = "?"
 
         thread {
@@ -120,11 +191,9 @@ class MainActivity : AppCompatActivity() {
                 if (granted) {
                     icon.text = "✓"
                     title.text = "Đã cấp quyền root"
-                    subtitle.text = "Có thể đổi hiệu năng CPU/GPU khi vào game"
                 } else {
                     icon.text = "✕"
                     title.text = "Chưa có quyền root"
-                    subtitle.text = "Mở KernelSU Manager, cấp Superuser cho Qspace"
                 }
             }
         }
@@ -187,15 +256,15 @@ class MainActivity : AppCompatActivity() {
             .create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
-        val adapter = AppPickerAdapter(pm, apps) { app ->
+        val pickerAdapter = AppPickerAdapter(pm, apps) { app ->
             onSelected(app.packageName)
             dialog.dismiss()
         }
-        recyclerView.adapter = adapter
+        recyclerView.adapter = pickerAdapter
 
         searchBox.addTextChangedListener(object : android.text.TextWatcher {
             override fun afterTextChanged(s: android.text.Editable?) {
-                adapter.filter(s?.toString() ?: "")
+                pickerAdapter.filter(s?.toString() ?: "")
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}

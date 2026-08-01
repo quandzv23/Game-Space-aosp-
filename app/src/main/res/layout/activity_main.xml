@@ -10,54 +10,134 @@
         android:id="@+id/main_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="horizontal">
+        android:orientation="vertical">
 
-        <!-- Cột trái: trạng thái, cố định chiều rộng -->
-        <ScrollView
-            android:layout_width="260dp"
-            android:layout_height="match_parent"
+        <!-- Thanh trạng thái trên cùng: pin, CPU%, GPU% -->
+        <LinearLayout
+            android:id="@+id/header_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:background="@drawable/header_gradient"
-            android:scrollbars="none">
+            android:orientation="horizontal"
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="14dp"
+            android:gravity="center_vertical">
 
-            <LinearLayout
-                android:id="@+id/header_container"
-                android:layout_width="match_parent"
+            <TextView
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="QSPACE"
+                android:textColor="@color/accent_cyan"
+                android:textSize="15sp"
+                android:letterSpacing="0.2"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/stat_battery"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="16dp"
+                android:text="🔋 --%"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:text="CPU"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/stat_cpu"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="16dp"
+                android:text="--%"
+                android:textColor="@color/accent_amber"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:text="GPU"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/stat_gpu"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--%"
+                android:textColor="@color/accent_cyan"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <!-- Cột trái: danh sách game -->
+            <LinearLayout
+                android:layout_width="230dp"
+                android:layout_height="match_parent"
                 android:orientation="vertical"
-                android:padding="18dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="QSPACE"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.2" />
-
-                <TextView
-                    android:id="@+id/status_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Chưa bật theo dõi"
-                    android:textColor="@color/text_primary"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:text="CÀI ĐẶT CHUNG"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="10sp"
-                    android:letterSpacing="0.15" />
+                android:paddingTop="12dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:layout_marginTop="8dp"
+                    android:paddingHorizontal="16dp"
+                    android:paddingBottom="8dp"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Game"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/btn_add_game"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/pill_button_amber"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
+                        android:text="+"
+                        android:textColor="#0B0E1A"
+                        android:textStyle="bold"
+                        android:textSize="13sp" />
+
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/game_list"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:paddingHorizontal="12dp"
+                    android:clipToPadding="false" />
+
+                <!-- Cài đặt gọn ở dưới cột trái -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="10dp"
                     android:gravity="center_vertical">
 
                     <TextView
@@ -65,8 +145,8 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Theo dõi nền"
-                        android:textColor="@color/text_primary"
-                        android:textSize="13sp" />
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
 
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switch_service"
@@ -77,12 +157,11 @@
 
                 </LinearLayout>
 
-                <!-- Card trạng thái quét root -->
                 <LinearLayout
                     android:id="@+id/root_status_card"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
+                    android:layout_margin="12dp"
                     android:background="@drawable/card_game_item"
                     android:orientation="horizontal"
                     android:padding="10dp"
@@ -90,60 +169,111 @@
 
                     <TextView
                         android:id="@+id/root_status_icon"
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
+                        android:layout_width="26dp"
+                        android:layout_height="26dp"
                         android:background="@drawable/qspace_logo_bg"
                         android:gravity="center"
                         android:text="?"
-                        android:textSize="12sp"
+                        android:textSize="11sp"
                         android:textColor="@color/bg_deep"
                         android:textStyle="bold" />
 
-                    <LinearLayout
+                    <TextView
+                        android:id="@+id/root_status_title"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:layout_marginStart="10dp"
-                        android:orientation="vertical">
+                        android:text="Đang quét root..."
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp" />
 
-                        <TextView
-                            android:id="@+id/root_status_title"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Đang quét root..."
-                            android:textColor="@color/text_primary"
-                            android:textSize="11sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/root_status_subtitle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Cần root để đổi hiệu năng"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="9sp" />
-
-                    </LinearLayout>
+                    <TextView
+                        android:id="@+id/root_status_action"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/panel_row_bg"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="6dp"
+                        android:text="Quét"
+                        android:textColor="@color/accent_cyan"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
 
                 </LinearLayout>
 
+            </LinearLayout>
+
+            <!-- Cột phải: khung showcase game đang chọn -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="24dp">
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/showcase_frame_bg">
+
+                    <ImageView
+                        android:id="@+id/showcase_backdrop"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:alpha="0.25"
+                        android:contentDescription="backdrop" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:orientation="vertical"
+                        android:gravity="center">
+
+                        <ImageView
+                            android:id="@+id/showcase_icon"
+                            android:layout_width="96dp"
+                            android:layout_height="96dp"
+                            android:background="@drawable/card_game_item"
+                            android:padding="10dp"
+                            android:contentDescription="game" />
+
+                        <TextView
+                            android:id="@+id/showcase_name"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="14dp"
+                            android:text="Chưa chọn game"
+                            android:textColor="@color/text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                </FrameLayout>
+
                 <TextView
-                    android:id="@+id/root_status_action"
-                    android:layout_width="wrap_content"
+                    android:id="@+id/btn_start_game"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/panel_row_bg"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="6dp"
-                    android:text="Quét lại"
-                    android:textColor="@color/accent_cyan"
-                    android:textSize="11sp"
+                    android:layout_marginTop="18dp"
+                    android:background="@drawable/pill_button_amber"
+                    android:gravity="center"
+                    android:paddingVertical="14dp"
+                    android:text="▶  Bắt đầu chơi"
+                    android:textColor="#0B0E1A"
+                    android:textSize="15sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
+                    android:layout_marginTop="16dp"
+                    android:layout_gravity="start"
                     android:text="ĐA NHIỆM NHANH"
                     android:textColor="@color/text_secondary"
                     android:textSize="9sp"
@@ -182,69 +312,6 @@
                 </LinearLayout>
 
             </LinearLayout>
-
-        </ScrollView>
-
-        <!-- Cột phải: danh sách game, chiếm hết chiều cao còn lại -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingHorizontal="16dp"
-                android:paddingTop="14dp"
-                android:paddingBottom="8dp"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Danh sách game"
-                    android:textColor="@color/text_primary"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/btn_toggle_view"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="8dp"
-                    android:background="@drawable/panel_row_bg"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="7dp"
-                    android:text="☰ List"
-                    android:textColor="@color/accent_cyan"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/btn_add_game"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/pill_button_amber"
-                    android:paddingHorizontal="16dp"
-                    android:paddingVertical="7dp"
-                    android:text="+ Thêm"
-                    android:textColor="#0B0E1A"
-                    android:textStyle="bold"
-                    android:textSize="12sp" />
-
-            </LinearLayout>
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/game_list"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:paddingHorizontal="16dp"
-                android:clipToPadding="false"
-                android:paddingBottom="16dp" />
 
         </LinearLayout>
 

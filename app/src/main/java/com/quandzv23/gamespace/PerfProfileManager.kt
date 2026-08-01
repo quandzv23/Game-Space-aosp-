@@ -55,6 +55,38 @@ object PerfProfileManager {
         return stoppedCount
     }
 
+    /** Đọc % CPU tổng thật qua /proc/stat, dùng chung cho cả OverlayBubbleService và MainActivity. */
+    fun readCpuUsagePercent(): Int {
+        try {
+            fun readStatLine(): LongArray? {
+                val result = Shell.cmd("cat /proc/stat").exec()
+                if (!result.isSuccess) return null
+                val line = result.out.firstOrNull { it.startsWith("cpu ") } ?: return null
+                val parts = line.trim().split(Regex("\\s+")).drop(1).mapNotNull { it.toLongOrNull() }
+                if (parts.size < 4) return null
+                val idle = parts[3] + (parts.getOrElse(4) { 0L })
+                val total = parts.sum()
+                return longArrayOf(idle, total)
+            }
+            val first = readStatLine() ?: return -1
+            Thread.sleep(200)
+            val second = readStatLine() ?: return -1
+            val idleDelta = second[0] - first[0]
+            val totalDelta = second[1] - first[1]
+            if (totalDelta <= 0) return -1
+            val usage = (100 * (totalDelta - idleDelta) / totalDelta).toInt()
+            return usage.coerceIn(0, 100)
+        } catch (e: Exception) {
+            return -1
+        }
+    }
+
+    /** Đọc % tải GPU thật qua /sys/kernel/gpu/gpu_busy — node đã xác nhận có trên A21s. */
+    fun readGpuUsagePercent(): Int {
+        val value = readSysfs("/sys/kernel/gpu/gpu_busy") ?: return -1
+        return value.trim().toIntOrNull()?.coerceIn(0, 100) ?: -1
+    }
+
     /** Kiểm tra thật xem app có quyền root dùng được không (không chỉ "đã cài KernelSU"). */
     fun hasRootAccess(): Boolean {
         return try {
@@ -62,6 +94,13 @@ object PerfProfileManager {
         } catch (e: Exception) {
             false
         }
+    }
+
+    /** Kiểm tra thật xem tiến trình của app còn sống trong nền không (chưa bị hệ thống/kill hẳn),
+     *  dùng để quyết định có cần hiện lại splash lúc vào game hay không. */
+    fun isProcessAlive(pkg: String): Boolean {
+        val result = Shell.cmd("pidof $pkg").exec()
+        return result.isSuccess && result.out.any { it.isNotBlank() }
     }
 
     fun captureCurrentAsDefault() {
