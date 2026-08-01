@@ -7,7 +7,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 
 class GameAdapter(
@@ -21,7 +20,6 @@ class GameAdapter(
     class ListViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val icon: ImageView = view.findViewById(R.id.app_icon)
         val name: TextView = view.findViewById(R.id.app_name)
-        val playBtn: TextView = view.findViewById(R.id.btn_play)
         val removeBtn: TextView = view.findViewById(R.id.btn_remove)
     }
 
@@ -48,11 +46,6 @@ class GameAdapter(
         holder.icon.setImageDrawable(icon)
         holder.name.text = label
         holder.removeBtn.setOnClickListener { onRemove(pkg) }
-        holder.playBtn.setOnClickListener {
-            val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
-            if (launchIntent != null) context.startActivity(launchIntent)
-            else Toast.makeText(context, "Không mở được app này", Toast.LENGTH_SHORT).show()
-        }
         holder.itemView.setOnClickListener { onSelect(pkg) }
     }
 

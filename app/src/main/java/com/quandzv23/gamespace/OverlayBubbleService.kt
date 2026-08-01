@@ -50,10 +50,6 @@ class OverlayBubbleService : Service() {
     private var touchLockTopLeft: View? = null
     private var touchLockTopRight: View? = null
 
-    // Dock đa nhiệm nổi — cột icon tròn dọc theo cạnh màn hình, kiểu Edge Panel
-    private var dockView: View? = null
-    private var dockParams: WindowManager.LayoutParams? = null
-
     // Tối ưu WiFi — giữ radio ở chế độ độ trễ thấp, tránh tụt ping do tiết kiệm pin
     private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
 
@@ -82,8 +78,6 @@ class OverlayBubbleService : Service() {
             // thanh điều hướng/thanh trạng thái ẩn-hiện khác nhau giữa các lần.
             refreshScreenMetrics()
             resetTabToEdge()
-            hideMultitaskDock()
-            showMultitaskDock()
         }
         return START_STICKY
     }
@@ -267,6 +261,7 @@ class OverlayBubbleService : Service() {
         if (SettingsStore.isWifiOptimizeEnabled(this)) enableWifiOptimization()
 
         updateProfileHighlight(view)
+        populateMultitaskRow(view)
         windowManager.addView(view, params)
         startPanelStatsPolling(view)
     }
@@ -533,15 +528,14 @@ class OverlayBubbleService : Service() {
      *  máy/ROM không hỗ trợ freeform sẽ tự mở toàn màn hình như bình thường. */
     /** Dock nổi cột icon tròn dọc theo cạnh trái màn hình, kiểu Edge Panel — tách riêng khỏi
      *  panel, luôn hiện (kể cả khi đã đóng panel) khi tính năng Đa nhiệm đang bật. */
-    private fun showMultitaskDock() {
-        if (dockView != null) return
-        val apps = SettingsStore.getQuickApps(this).toList().sorted()
-
-        val view = LayoutInflater.from(this).inflate(R.layout.multitask_dock, null)
-        val container = view.findViewById<android.widget.LinearLayout>(R.id.multitask_dock_container)
+    /** Dãy icon đa nhiệm ngang NẰM TRONG panel — hiện/ẩn cùng lúc panel mở/đóng, không phải
+     *  cửa sổ nổi riêng. Luôn có dấu "+" ở cuối để thêm app ngay cả khi đã có app khác. */
+    private fun populateMultitaskRow(panel: View) {
+        val container = panel.findViewById<android.widget.LinearLayout>(R.id.multitask_dock_container)
+        container.removeAllViews()
         val pm = packageManager
 
-        for (pkg in apps) {
+        for (pkg in SettingsStore.getQuickApps(this).toList().sorted()) {
             val iconView = LayoutInflater.from(this).inflate(R.layout.item_multitask_dock_icon, container, false)
             val icon = iconView.findViewById<android.widget.ImageView>(R.id.dock_app_icon)
             try {
@@ -554,11 +548,10 @@ class OverlayBubbleService : Service() {
             container.addView(iconView)
         }
 
-        // Dấu "+" luôn có mặt ở cuối dock — cho phép thêm app đa nhiệm ngay khi đang chơi,
+        // Dấu "+" luôn có mặt ở cuối dòng — cho phép thêm app đa nhiệm ngay khi đang chơi,
         // không cần thoát ra màn hình chính Qspace.
         val addView = LayoutInflater.from(this).inflate(R.layout.item_multitask_dock_icon, container, false)
         val addIcon = addView.findViewById<android.widget.ImageView>(R.id.dock_app_icon)
-        addIcon.setImageDrawable(null)
         addIcon.setImageResource(android.R.drawable.ic_input_add)
         addIcon.setColorFilter(android.graphics.Color.parseColor("#0B0E1A"))
         addView.setOnClickListener {
@@ -566,22 +559,6 @@ class OverlayBubbleService : Service() {
             openAddQuickAppFlow()
         }
         container.addView(addView)
-
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 0
-            y = 380
-        }
-        dockView = view
-        dockParams = params
-        windowManager.addView(view, params)
     }
 
     /** Mở màn hình chính Qspace thẳng tới bước chọn app để thêm vào đa nhiệm — vì hộp thoại chọn
@@ -592,12 +569,6 @@ class OverlayBubbleService : Service() {
             putExtra("open_add_quick_app", true)
         }
         startActivity(intent)
-    }
-
-    private fun hideMultitaskDock() {
-        dockView?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }
-        dockView = null
-        dockParams = null
     }
 
     private fun launchQuickApp(pkg: String) {
@@ -664,7 +635,6 @@ class OverlayBubbleService : Service() {
     override fun onDestroy() {
         stopPanelStatsPolling()
         hideTouchLock()
-        hideMultitaskDock()
         disableWifiOptimization()
         tabView?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }
         panelView?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }
