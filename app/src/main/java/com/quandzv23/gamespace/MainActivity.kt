@@ -59,11 +59,7 @@ class MainActivity : AppCompatActivity() {
         if (games.isNotEmpty()) selectGame(games.first())
 
         findViewById<TextView>(R.id.btn_add_game).setOnClickListener {
-            showInstalledAppsPicker { pkg ->
-                GameListStore.addGame(this, pkg)
-                refreshList()
-                if (selectedGame == null) selectGame(pkg)
-            }
+            showGameManagerDialog()
         }
 
         findViewById<TextView>(R.id.btn_start_game).setOnClickListener {
@@ -275,6 +271,93 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshList() {
         adapter.submit(GameListStore.getGames(this).toList().sorted())
+    }
+
+    private fun showGameManagerDialog() {
+        val pm = packageManager
+        val allApps = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getInstalledApplications(0)
+        }
+            .filter { pm.getLaunchIntentForPackage(it.packageName) != null }
+            .sortedBy { pm.getApplicationLabel(it).toString() }
+
+        val dialogView = layoutInflater.inflate(R.layout.dialog_game_manager, null)
+        val addedList = dialogView.findViewById<RecyclerView>(R.id.list_added_games)
+        val availableList = dialogView.findViewById<RecyclerView>(R.id.list_available_apps)
+        val addedLabel = dialogView.findViewById<TextView>(R.id.label_added_count)
+        val availableLabel = dialogView.findViewById<TextView>(R.id.label_available_count)
+        val searchBox = dialogView.findViewById<android.widget.EditText>(R.id.game_manager_search)
+        addedList.layoutManager = LinearLayoutManager(this)
+        availableList.layoutManager = LinearLayoutManager(this)
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this, android.R.style.Theme_Material_NoActionBar_Fullscreen)
+            .setView(dialogView)
+            .create()
+
+        var currentQuery = ""
+
+        fun matchesQuery(app: android.content.pm.ApplicationInfo): Boolean {
+            if (currentQuery.isBlank()) return true
+            return pm.getApplicationLabel(app).toString().contains(currentQuery, ignoreCase = true) ||
+                app.packageName.contains(currentQuery, ignoreCase = true)
+        }
+
+        lateinit var addedAdapter: AppToggleAdapter
+        lateinit var availableAdapter: AppToggleAdapter
+
+        fun refreshBothLists() {
+            val filtered = allApps.filter { matchesQuery(it) }
+            val added = filtered.filter { GameListStore.isGame(this, it.packageName) }
+            val available = filtered.filter { !GameListStore.isGame(this, it.packageName) }
+            addedAdapter.submit(added)
+            availableAdapter.submit(available)
+            addedLabel.text = "Đã thêm ${added.size} game"
+            availableLabel.text = "Chưa thêm ${available.size} app"
+            refreshList()
+        }
+
+        addedAdapter = AppToggleAdapter(
+            pm,
+            emptyList(),
+            isOn = { true }
+        ) { app, checked ->
+            if (!checked) {
+                GameListStore.removeGame(this, app.packageName)
+                refreshBothLists()
+            }
+        }
+        availableAdapter = AppToggleAdapter(
+            pm,
+            emptyList(),
+            isOn = { false }
+        ) { app, checked ->
+            if (checked) {
+                GameListStore.addGame(this, app.packageName)
+                if (selectedGame == null) selectGame(app.packageName)
+                refreshBothLists()
+            }
+        }
+        addedList.adapter = addedAdapter
+        availableList.adapter = availableAdapter
+        refreshBothLists()
+
+        searchBox.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {
+                currentQuery = s?.toString() ?: ""
+                refreshBothLists()
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        dialogView.findViewById<TextView>(R.id.btn_back_game_manager).setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     private fun showInstalledAppsPicker(onSelected: (String) -> Unit) {

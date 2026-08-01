@@ -106,7 +106,7 @@ class OverlayBubbleService : Service() {
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = 0
-            y = 260
+            y = SettingsStore.getTabYPosition(this@OverlayBubbleService)
         }
         tabParams = params
 
@@ -165,7 +165,9 @@ class OverlayBubbleService : Service() {
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     val dx = event.rawX - startTouchX
                     when {
-                        verticalDrag -> { /* đã di chuyển xong, giữ nguyên vị trí mới */ }
+                        verticalDrag -> {
+                            tabParams?.let { SettingsStore.setTabYPosition(this@OverlayBubbleService, it.y) }
+                        }
                         horizontalDrag -> {
                             val openedEnough = dx > panelWidthPx / 2f
                             if (openedEnough) snapPanelOpen() else snapPanelClosed()

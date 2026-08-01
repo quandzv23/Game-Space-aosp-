@@ -7,6 +7,7 @@ object SettingsStore {
     private const val KEY_TOUCH_LOCK = "touch_lock_enabled"
     private const val KEY_CALL_BLOCK = "call_block_enabled"
     private const val KEY_WIFI_OPT = "wifi_optimize_enabled"
+    private const val KEY_TAB_Y = "edge_tab_y_position"
     private const val KEY_QUICK_APPS = "quick_apps"
 
     fun isTouchLockEnabled(context: Context) =
@@ -31,6 +32,14 @@ object SettingsStore {
     fun setWifiOptimizeEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean(KEY_WIFI_OPT, enabled).apply()
+    }
+
+    fun getTabYPosition(context: Context): Int =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_TAB_Y, 260)
+
+    fun setTabYPosition(context: Context, y: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putInt(KEY_TAB_Y, y).apply()
     }
 
     fun getQuickApps(context: Context): Set<String> =

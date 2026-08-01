@@ -34,7 +34,12 @@ object PerfProfileManager {
         "com.vng.zingmp3",
         "com.nct.nhaccuatui",
         "com.soundcloud.android",
-        "com.zing.mp3"
+        "com.zing.mp3",
+        // Bàn phím phổ biến — giữ dự phòng cả khi lệnh đọc IME hiện tại thất bại
+        "com.google.android.inputmethod.latin",
+        "com.samsung.android.honeyboard",
+        "com.touchtype.swiftkey",
+        "com.sec.android.inputmethod"
     )
 
     /** Dọn RAM: force-stop các app bên thứ 3 đang cài (trừ app nhạc/YouTube, chính Qspace,
@@ -43,9 +48,16 @@ object PerfProfileManager {
         val listResult = Shell.cmd("pm list packages -3").exec()
         if (!listResult.isSuccess) return -1
 
+        // Bàn phím (IME) đang dùng — tuyệt đối không được tắt, không thì mất chữ đang gõ ngay.
+        val imeResult = Shell.cmd("settings get secure default_input_method").exec()
+        val currentImePackage = imeResult.out.firstOrNull()?.substringBefore("/")?.trim()
+
         val packages = listResult.out
             .mapNotNull { line -> line.removePrefix("package:").trim().takeIf { it.isNotEmpty() } }
-            .filter { it != ownPackage && it != currentGamePackage && it !in keepAlivePackages }
+            .filter {
+                it != ownPackage && it != currentGamePackage && it != currentImePackage &&
+                    it !in keepAlivePackages
+            }
 
         var stoppedCount = 0
         for (pkg in packages) {

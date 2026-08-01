@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingVertical="8dp">
+
+    <ImageView
+        android:id="@+id/toggle_item_icon"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:contentDescription="icon" />
+
+    <TextView
+        android:id="@+id/toggle_item_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="12dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="@color/text_primary"
+        android:textSize="13sp" />
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/toggle_item_switch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:thumbTint="@color/accent_amber"
+        android:trackTint="@color/bg_card_alt" />
+
+</LinearLayout>
