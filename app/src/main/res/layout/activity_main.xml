@@ -156,6 +156,37 @@
 
                 </LinearLayout>
 
+                <!-- Đổi video hiệu ứng lúc mở app -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="16dp"
+                    android:paddingBottom="10dp"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Video mở app"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/btn_change_intro_video"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/panel_row_bg"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="6dp"
+                        android:text="Đổi video"
+                        android:textColor="@color/accent_cyan"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
                 <LinearLayout
                     android:id="@+id/root_status_card"
                     android:layout_width="match_parent"
@@ -324,6 +355,12 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@color/bg_deep">
+
+        <VideoView
+            android:id="@+id/open_intro_video"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
 
         <View
             android:id="@+id/open_ring1"

@@ -15,6 +15,8 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.VideoView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -26,6 +28,25 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var adapter: GameAdapter
     private var selectedGame: String? = null
+
+    // Chọn file video mp4 từ máy để dùng làm hiệu ứng lúc mở app.
+    // Dùng OpenDocument (thay vì GetContent) để xin được quyền truy cập lâu dài (persistable),
+    // vì video sẽ được VideoView đọc lại ở mỗi lần mở app sau này, không chỉ lần chọn.
+    private val pickIntroVideoLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: SecurityException) {
+                // Một số provider không hỗ trợ persistable permission — vẫn lưu URI,
+                // video có thể không phát lại được sau khi khởi động lại máy.
+            }
+            SettingsStore.setIntroVideoUri(this, uri.toString())
+            Toast.makeText(this, "Đã đổi video mở app", Toast.LENGTH_SHORT).show()
+        }
 
     private val statsHandler = Handler(Looper.getMainLooper())
     private var statsRunning = false
@@ -92,6 +113,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        findViewById<TextView>(R.id.btn_change_intro_video).setOnClickListener {
+            pickIntroVideoLauncher.launch(arrayOf("video/*"))
+        }
+
         val switch = findViewById<SwitchCompat>(R.id.switch_service)
         switch.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
@@ -155,6 +180,13 @@ class MainActivity : AppCompatActivity() {
     /** Animation nhẹ lúc vừa mở app: header + card trượt lên và mờ dần vào. */
     private fun playEntranceAnimation() {
         val overlay = findViewById<android.view.View>(R.id.open_anim_overlay)
+
+        val introUriString = SettingsStore.getIntroVideoUri(this)
+        if (introUriString != null) {
+            if (playIntroVideo(overlay, Uri.parse(introUriString))) return
+            // Không phát được video (file bị xóa/thu hồi quyền...) -> rơi về animation mặc định
+        }
+
         val badge = findViewById<android.view.View>(R.id.open_logo_badge)
         val title = findViewById<android.view.View>(R.id.open_logo_title)
         val rings = listOf(
@@ -198,6 +230,36 @@ class MainActivity : AppCompatActivity() {
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             revealRealUi(overlay)
         }, 850)
+    }
+
+    /**
+     * Phát video mp4 do người dùng chọn thay cho animation logo mặc định.
+     * Trả về true nếu bắt đầu phát được (đã nhận setDataSource thành công);
+     * false nếu URI không dùng được nữa (VideoView sẽ báo lỗi qua onError trước khi trả về,
+     * trong trường hợp đó ta rơi về animation mặc định ngay lập tức).
+     */
+    private fun playIntroVideo(overlay: android.view.View, uri: Uri): Boolean {
+        val videoView = findViewById<VideoView>(R.id.open_intro_video)
+        return try {
+            videoView.visibility = android.view.View.VISIBLE
+            videoView.setVideoURI(uri)
+            videoView.setOnPreparedListener { mp ->
+                mp.isLooping = false
+                videoView.start()
+            }
+            videoView.setOnCompletionListener {
+                revealRealUi(overlay)
+            }
+            videoView.setOnErrorListener { _, _, _ ->
+                videoView.visibility = android.view.View.GONE
+                revealRealUi(overlay)
+                true
+            }
+            true
+        } catch (e: Exception) {
+            videoView.visibility = android.view.View.GONE
+            false
+        }
     }
 
     private fun revealRealUi(overlay: android.view.View) {

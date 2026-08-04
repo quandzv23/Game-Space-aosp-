@@ -9,6 +9,7 @@ object SettingsStore {
     private const val KEY_WIFI_OPT = "wifi_optimize_enabled"
     private const val KEY_TAB_Y = "edge_tab_y_position"
     private const val KEY_QUICK_APPS = "quick_apps"
+    private const val KEY_INTRO_VIDEO_URI = "intro_video_uri"
 
     fun isTouchLockEnabled(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_TOUCH_LOCK, false)
@@ -57,5 +58,14 @@ object SettingsStore {
         val current = getQuickApps(context).toMutableSet()
         current.remove(packageName)
         prefs.edit().putStringSet(KEY_QUICK_APPS, current).apply()
+    }
+
+    /** URI (dạng String) của video mp4 dùng làm hiệu ứng lúc mở app. Null = dùng animation mặc định. */
+    fun getIntroVideoUri(context: Context): String? =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_INTRO_VIDEO_URI, null)
+
+    fun setIntroVideoUri(context: Context, uri: String?) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_INTRO_VIDEO_URI, uri).apply()
     }
 }
