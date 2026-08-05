@@ -356,6 +356,26 @@
         android:layout_height="match_parent"
         android:background="@color/bg_deep">
 
+        <!-- Lớp NỀN: video zoom phủ kín màn hình, làm tối đi để chỉ đóng vai trò lấp
+             khoảng trống hai bên — bị cắt cũng không sao vì đây chỉ là trang trí. -->
+        <androidx.media3.ui.PlayerView
+            android:id="@+id/open_intro_video_bg"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:alpha="0.45"
+            app:resize_mode="zoom"
+            app:use_controller="false"
+            app:surface_type="surface_view"
+            android:visibility="gone" />
+
+        <View
+            android:id="@+id/open_intro_video_scrim"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#66000000"
+            android:visibility="gone" />
+
+        <!-- Lớp CHÍNH: cùng video, hiện "fit" đủ 100% nội dung, không cắt, đặt giữa màn hình. -->
         <androidx.media3.ui.PlayerView
             android:id="@+id/open_intro_video"
             android:layout_width="match_parent"
