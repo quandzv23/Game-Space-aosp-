@@ -1,3 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+# Sửa namespace xmlns:app bị sai (idempotent, chạy lại không sao)
+sed -i 's#xmlns:app="http://schemas.android.com/apk/res/res-auto"#xmlns:app="http://schemas.android.com/apk/res-auto"#' app/src/main/res/layout/activity_main.xml
+
+# Ghi đè MainActivity.kt với bản có thêm Toast debug để tìm lỗi video không phát
+cat > app/src/main/java/com/quandzv23/gamespace/MainActivity.kt << 'QSPACE_EOF'
 package com.quandzv23.gamespace
 
 import android.animation.AnimatorSet
@@ -544,3 +552,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
+QSPACE_EOF
+
+echo "Xong. git status:"
+git status
