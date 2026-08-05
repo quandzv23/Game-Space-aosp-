@@ -1,3 +1,9 @@
+#!/usr/bin/env bash
+set -e
+
+# Thanh vuốt cạnh to hơn (rộng ngang 40dp->60dp, cao 150dp->190dp), sửa luôn vùng kẹp tọa độ theo density
+
+cat > app/src/main/java/com/quandzv23/gamespace/OverlayBubbleService.kt << 'QSPACE_EOF'
 package com.quandzv23.gamespace
 
 import android.animation.ObjectAnimator
@@ -652,3 +658,27 @@ class OverlayBubbleService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 }
+QSPACE_EOF
+
+cat > app/src/main/res/layout/edge_tab.xml << 'QSPACE_EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="60dp"
+    android:layout_height="190dp"
+    android:background="@drawable/edge_tab_bg"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:paddingVertical="16dp">
+
+    <View android:layout_width="6dp" android:layout_height="6dp"
+        android:background="@drawable/dot_amber" android:layout_marginBottom="11dp" />
+    <View android:layout_width="6dp" android:layout_height="6dp"
+        android:background="@drawable/dot_amber" android:layout_marginBottom="11dp" />
+    <View android:layout_width="6dp" android:layout_height="6dp"
+        android:background="@drawable/dot_amber" />
+
+</LinearLayout>
+QSPACE_EOF
+
+echo "Xong. git status:"
+git status
