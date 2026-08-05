@@ -356,10 +356,13 @@
         android:layout_height="match_parent"
         android:background="@color/bg_deep">
 
-        <VideoView
+        <androidx.media3.ui.PlayerView
             android:id="@+id/open_intro_video"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            app:resize_mode="zoom"
+            app:use_controller="false"
+            app:surface_type="surface_view"
             android:visibility="gone" />
 
         <View

@@ -42,4 +42,10 @@ dependencies {
 
     // Root shell access — works with KernelSU's su binary (Atlas kernel already has KernelSU)
     implementation 'com.github.topjohnwu.libsu:core:5.2.2'
+
+    // ExoPlayer (Media3) — dùng cho video mở app: xử lý đúng metadata xoay (rotation)
+    // của video quay dọc (TikTok, v.v.) mà VideoView cũ đọc sai, và có sẵn chế độ
+    // "zoom" (crop kín khung, không méo hình) không cần tự tính toán tay.
+    implementation 'androidx.media3:media3-exoplayer:1.4.1'
+    implementation 'androidx.media3:media3-ui:1.4.1'
 }

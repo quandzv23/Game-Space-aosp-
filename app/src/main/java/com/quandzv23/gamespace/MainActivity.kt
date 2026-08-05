@@ -15,10 +15,13 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
-import android.widget.VideoView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.topjohnwu.superuser.Shell
@@ -26,8 +29,17 @@ import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        // static -> sống theo vòng đời PROCESS, không theo Activity. Activity có thể bị
+        // hủy/tạo lại (bấm back, xoay máy, quay lại từ game...) trong khi process (và
+        // GameWatcherService) vẫn đang chạy nền -> những lần vào lại đó KHÔNG phát video/animation
+        // mở app nữa. Cờ này chỉ reset về false khi cả process bị hệ thống kill hoàn toàn.
+        private var introPlayedThisProcess = false
+    }
+
     private lateinit var adapter: GameAdapter
     private var selectedGame: String? = null
+    private var introPlayer: ExoPlayer? = null
 
     // Chọn file video mp4 từ máy để dùng làm hiệu ứng lúc mở app.
     // Dùng OpenDocument (thay vì GetContent) để xin được quyền truy cập lâu dài (persistable),
@@ -61,7 +73,13 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        playEntranceAnimation()
+        if (introPlayedThisProcess) {
+            // App (process) đã chạy sẵn từ trước -> vào lại lần này không phát video/animation nữa
+            findViewById<android.view.View>(R.id.open_anim_overlay).visibility = android.view.View.GONE
+        } else {
+            introPlayedThisProcess = true
+            playEntranceAnimation()
+        }
         ensurePermissions()
         scanRootAccess()
 
@@ -138,6 +156,12 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
         statsRunning = false
         statsHandler.removeCallbacks(statsRunnable)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        introPlayer?.release()
+        introPlayer = null
     }
 
     /** Đưa 1 game lên khung showcase trung tâm. */
@@ -234,32 +258,47 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Phát video mp4 do người dùng chọn thay cho animation logo mặc định.
-     * Trả về true nếu bắt đầu phát được (đã nhận setDataSource thành công);
-     * false nếu URI không dùng được nữa (VideoView sẽ báo lỗi qua onError trước khi trả về,
-     * trong trường hợp đó ta rơi về animation mặc định ngay lập tức).
+     * Dùng ExoPlayer (Media3) thay vì VideoView vì VideoView đọc sai kích thước với
+     * video có metadata xoay (video quay dọc như TikTok) -> tính crop sai hướng.
+     * ExoPlayer + PlayerView(resize_mode="zoom") xử lý đúng rotation và tự crop kín khung.
+     * Trả về true nếu bắt đầu phát được; false nếu URI không dùng được (mất quyền,
+     * file bị xóa...) -> rơi về animation mặc định ngay lập tức.
      */
     private fun playIntroVideo(overlay: android.view.View, uri: Uri): Boolean {
-        val videoView = findViewById<VideoView>(R.id.open_intro_video)
+        val playerView = findViewById<PlayerView>(R.id.open_intro_video)
         return try {
-            videoView.visibility = android.view.View.VISIBLE
-            videoView.setVideoURI(uri)
-            videoView.setOnPreparedListener { mp ->
-                mp.isLooping = false
-                videoView.start()
-            }
-            videoView.setOnCompletionListener {
-                revealRealUi(overlay)
-            }
-            videoView.setOnErrorListener { _, _, _ ->
-                videoView.visibility = android.view.View.GONE
-                revealRealUi(overlay)
-                true
-            }
+            val player = ExoPlayer.Builder(this).build()
+            introPlayer = player
+            playerView.player = player
+            playerView.visibility = android.view.View.VISIBLE
+
+            player.addListener(object : Player.Listener {
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_ENDED) {
+                        finishIntroVideo(overlay, playerView, player)
+                    }
+                }
+
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    finishIntroVideo(overlay, playerView, player)
+                }
+            })
+
+            player.setMediaItem(MediaItem.fromUri(uri))
+            player.playWhenReady = true
+            player.prepare()
             true
         } catch (e: Exception) {
-            videoView.visibility = android.view.View.GONE
+            playerView.visibility = android.view.View.GONE
             false
         }
+    }
+
+    private fun finishIntroVideo(overlay: android.view.View, playerView: PlayerView, player: ExoPlayer) {
+        playerView.visibility = android.view.View.GONE
+        player.release()
+        if (introPlayer === player) introPlayer = null
+        revealRealUi(overlay)
     }
 
     private fun revealRealUi(overlay: android.view.View) {
