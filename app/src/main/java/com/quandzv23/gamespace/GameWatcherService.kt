@@ -67,6 +67,20 @@ class GameWatcherService : Service() {
         super.onDestroy()
     }
 
+    /**
+     * Gọi khi người dùng vuốt app khỏi Recents. Service (và cả process) vẫn tiếp tục
+     * sống để theo dõi game (đúng mục đích của nó) — KHÔNG dừng service ở đây.
+     * Nhưng vì cờ "đã phát video mở app" trước đây gắn theo process (static), nên
+     * process sống sót qua lần vuốt Recents khiến video không phát lại được nữa,
+     * phải Force Stop mới reset — đây chính là bug người dùng gặp.
+     * Sửa: reset cờ này (lưu trong SharedPreferences) ngay tại đây, để lần mở app
+     * tiếp theo (dù process cũ có còn sống hay không) đều phát lại video mở app.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        SettingsStore.setIntroPlayed(this, false)
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun checkForegroundApp() {

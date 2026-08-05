@@ -29,14 +29,6 @@ import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
-    companion object {
-        // static -> sống theo vòng đời PROCESS, không theo Activity. Activity có thể bị
-        // hủy/tạo lại (bấm back, xoay máy, quay lại từ game...) trong khi process (và
-        // GameWatcherService) vẫn đang chạy nền -> những lần vào lại đó KHÔNG phát video/animation
-        // mở app nữa. Cờ này chỉ reset về false khi cả process bị hệ thống kill hoàn toàn.
-        private var introPlayedThisProcess = false
-    }
-
     private lateinit var adapter: GameAdapter
     private var selectedGame: String? = null
     private var introPlayer: ExoPlayer? = null
@@ -73,11 +65,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        if (introPlayedThisProcess) {
-            // App (process) đã chạy sẵn từ trước -> vào lại lần này không phát video/animation nữa
+        if (SettingsStore.getIntroPlayed(this)) {
+            // Đã phát trong phiên hiện tại (chưa bị vuốt khỏi Recents kể từ lần phát trước)
+            // -> vào lại lần này không phát video/animation nữa.
             findViewById<android.view.View>(R.id.open_anim_overlay).visibility = android.view.View.GONE
         } else {
-            introPlayedThisProcess = true
+            SettingsStore.setIntroPlayed(this, true)
             playEntranceAnimation()
         }
         ensurePermissions()

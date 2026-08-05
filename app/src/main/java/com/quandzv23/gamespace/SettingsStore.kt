@@ -10,6 +10,7 @@ object SettingsStore {
     private const val KEY_TAB_Y = "edge_tab_y_position"
     private const val KEY_QUICK_APPS = "quick_apps"
     private const val KEY_INTRO_VIDEO_URI = "intro_video_uri"
+    private const val KEY_INTRO_PLAYED = "intro_played"
 
     fun isTouchLockEnabled(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_TOUCH_LOCK, false)
@@ -67,5 +68,19 @@ object SettingsStore {
     fun setIntroVideoUri(context: Context, uri: String?) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY_INTRO_VIDEO_URI, uri).apply()
+    }
+
+    /**
+     * Đã phát animation/video mở app trong "phiên" hiện tại chưa.
+     * Dùng SharedPreferences (không phải biến static) để không phụ thuộc vào việc
+     * process có còn sống hay không — chỉ reset khi GameWatcherService nhận
+     * onTaskRemoved (người dùng vuốt app khỏi Recents), xem GameWatcherService.kt.
+     */
+    fun getIntroPlayed(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_INTRO_PLAYED, false)
+
+    fun setIntroPlayed(context: Context, played: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_INTRO_PLAYED, played).apply()
     }
 }
