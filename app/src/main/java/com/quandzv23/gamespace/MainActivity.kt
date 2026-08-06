@@ -21,6 +21,7 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -257,12 +258,15 @@ class MainActivity : AppCompatActivity() {
      * Dùng ExoPlayer (Media3) thay vì VideoView vì VideoView đọc sai kích thước với
      * video có metadata xoay (video quay dọc như TikTok) -> tính crop sai hướng.
      *
-     * Phát 2 lớp cùng lúc để video dọc vừa đầy màn hình vừa không mất nội dung:
-     *  - Lớp nền (open_intro_video_bg): resize "zoom" phủ kín, làm mờ tối bằng alpha +
-     *    scrim đen — bị cắt cũng không sao vì chỉ để lấp khoảng trống 2 bên.
-     *  - Lớp chính (open_intro_video): resize "fit", hiện đủ 100% nội dung, không cắt.
-     * 2 player không cần đồng bộ khung hình tuyệt đối (lớp nền chỉ để trang trí, mắt
-     * người không nhận ra lệch vài trăm ms), nên tạo/prepare độc lập cho đơn giản.
+     * TỐI ƯU: chỉ video DỌC mới cần lớp nền (2 decoder cùng lúc) để vừa đầy màn hình
+     * vừa không mất nội dung. Video NGANG có tỉ lệ đã gần khớp màn hình ngang sẵn rồi
+     * -> chỉ cần 1 lớp duy nhất ("zoom", phủ kín, gần như không mất gì đáng kể), đỡ tốn
+     * thêm 1 decoder chạy song song vô ích -> nhẹ máy, đỡ pin hơn.
+     *
+     * Video xoay ngang/dọc chỉ biết được sau khi player đã prepare() và báo
+     * onVideoSizeChanged (Media3 tự tính đúng theo metadata rotation, không như
+     * VideoView cũ) -> lớp nền được tạo LAZY ngay trong callback đó, chỉ khi thật sự
+     * cần, thay vì luôn tạo sẵn như trước.
      *
      * Trả về true nếu bắt đầu phát được; false nếu URI không dùng được (mất quyền,
      * file bị xóa...) -> rơi về animation mặc định ngay lập tức.
@@ -271,6 +275,8 @@ class MainActivity : AppCompatActivity() {
         val playerView = findViewById<PlayerView>(R.id.open_intro_video)
         val bgPlayerView = findViewById<PlayerView>(R.id.open_intro_video_bg)
         val scrim = findViewById<android.view.View>(R.id.open_intro_video_scrim)
+        var orientationDecided = false
+
         return try {
             val player = ExoPlayer.Builder(this).build()
             introPlayer = player
@@ -278,6 +284,38 @@ class MainActivity : AppCompatActivity() {
             playerView.visibility = android.view.View.VISIBLE
 
             player.addListener(object : Player.Listener {
+                override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                    if (orientationDecided) return
+                    orientationDecided = true
+
+                    val isPortrait = videoSize.height > videoSize.width
+                    if (isPortrait) {
+                        // Video dọc: hiện đủ 100% nội dung (fit) + dựng thêm lớp nền
+                        // zoom mờ để lấp khoảng trống 2 bên cho đầy màn hình.
+                        playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        try {
+                            val bgPlayer = ExoPlayer.Builder(this@MainActivity).build()
+                            introBgPlayer = bgPlayer
+                            bgPlayerView.player = bgPlayer
+                            bgPlayerView.visibility = android.view.View.VISIBLE
+                            scrim.visibility = android.view.View.VISIBLE
+                            bgPlayer.setMediaItem(MediaItem.fromUri(uri))
+                            bgPlayer.playWhenReady = true
+                            bgPlayer.repeatMode = Player.REPEAT_MODE_ONE
+                            bgPlayer.prepare()
+                            // Đồng bộ tương đối vị trí phát để lớp nền không lệch quá xa lớp chính.
+                            bgPlayer.seekTo(player.currentPosition)
+                        } catch (e: Exception) {
+                            bgPlayerView.visibility = android.view.View.GONE
+                            scrim.visibility = android.view.View.GONE
+                        }
+                    } else {
+                        // Video ngang: 1 lớp duy nhất, zoom phủ kín màn hình ngang, không
+                        // cần lớp nền -> nhẹ máy hơn hẳn so với chạy 2 decoder song song.
+                        playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    }
+                }
+
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
                         finishIntroVideo(overlay, playerView, player, bgPlayerView, scrim)
@@ -292,23 +330,6 @@ class MainActivity : AppCompatActivity() {
             player.setMediaItem(MediaItem.fromUri(uri))
             player.playWhenReady = true
             player.prepare()
-
-            // Lớp nền — lỗi ở đây không quan trọng (chỉ trang trí), không cần fallback riêng.
-            try {
-                val bgPlayer = ExoPlayer.Builder(this).build()
-                introBgPlayer = bgPlayer
-                bgPlayerView.player = bgPlayer
-                bgPlayerView.visibility = android.view.View.VISIBLE
-                scrim.visibility = android.view.View.VISIBLE
-                bgPlayer.setMediaItem(MediaItem.fromUri(uri))
-                bgPlayer.playWhenReady = true
-                bgPlayer.repeatMode = Player.REPEAT_MODE_ONE
-                bgPlayer.prepare()
-            } catch (e: Exception) {
-                bgPlayerView.visibility = android.view.View.GONE
-                scrim.visibility = android.view.View.GONE
-            }
-
             true
         } catch (e: Exception) {
             playerView.visibility = android.view.View.GONE
