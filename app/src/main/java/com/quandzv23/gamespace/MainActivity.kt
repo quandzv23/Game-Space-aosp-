@@ -51,6 +51,9 @@ class MainActivity : AppCompatActivity() {
                 // video có thể không phát lại được sau khi khởi động lại máy.
             }
             SettingsStore.setIntroVideoUri(this, uri.toString())
+            // Video mới -> góc xoay cũ (nếu có) không còn đúng nữa, reset về 0.
+            SettingsStore.setIntroVideoRotation(this, 0)
+            findViewById<TextView>(R.id.btn_rotate_intro_video).text = "Xoay: 0°"
             Toast.makeText(this, "Đã đổi video mở app", Toast.LENGTH_SHORT).show()
         }
 
@@ -128,6 +131,18 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.btn_change_intro_video).setOnClickListener {
             pickIntroVideoLauncher.launch(arrayOf("video/*"))
+        }
+
+        val rotateBtn = findViewById<TextView>(R.id.btn_rotate_intro_video)
+        rotateBtn.text = "Xoay: ${SettingsStore.getIntroVideoRotation(this)}°"
+        rotateBtn.setOnClickListener {
+            // Chỉ để chỉnh cho video có nội dung nghiêng sẵn trong file (không có cờ
+            // rotation để tự phát hiện) — bấm lần lượt 0 -> 90 -> 180 -> 270 -> 0.
+            val current = SettingsStore.getIntroVideoRotation(this)
+            val next = (current + 90) % 360
+            SettingsStore.setIntroVideoRotation(this, next)
+            rotateBtn.text = "Xoay: $next°"
+            Toast.makeText(this, "Vuốt app khỏi Recents rồi mở lại để xem thử", Toast.LENGTH_SHORT).show()
         }
 
         val switch = findViewById<SwitchCompat>(R.id.switch_service)
@@ -276,6 +291,32 @@ class MainActivity : AppCompatActivity() {
         val bgPlayerView = findViewById<PlayerView>(R.id.open_intro_video_bg)
         val scrim = findViewById<android.view.View>(R.id.open_intro_video_scrim)
         var orientationDecided = false
+
+        // Góc xoay thủ công (nút "Xoay video") — dùng cho video có nội dung nghiêng
+        // sẵn trong file, không có cờ rotation để tự phát hiện được (như video F1 kiểu
+        // meme). Khi đã chỉnh tay, bỏ qua hẳn phần tự nhận diện dọc/ngang bên dưới,
+        // luôn dùng 1 lớp zoom vì sau khi xoay đúng, nội dung coi như đã "ngang" rồi.
+        val manualRotation = SettingsStore.getIntroVideoRotation(this)
+        if (manualRotation != 0) {
+            orientationDecided = true
+            playerView.rotation = manualRotation.toFloat()
+            playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            val dm = resources.displayMetrics
+            playerView.layoutParams = if (manualRotation == 90 || manualRotation == 270) {
+                // Xoay ngang <-> dọc: view trước khi xoay phải có kích thước ĐẢO chiều
+                // (rộng = chiều cao màn hình, cao = chiều rộng màn hình), để sau khi xoay
+                // 90/270 độ quanh tâm thì vừa khít đúng màn hình thật, không méo/hụt.
+                android.widget.FrameLayout.LayoutParams(dm.heightPixels, dm.widthPixels).apply {
+                    gravity = android.view.Gravity.CENTER
+                }
+            } else {
+                // 180 độ không đổi kích thước khung, chỉ lật ngược nội dung tại chỗ.
+                android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+        }
 
         return try {
             val player = ExoPlayer.Builder(this).build()

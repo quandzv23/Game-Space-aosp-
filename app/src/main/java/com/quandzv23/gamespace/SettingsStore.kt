@@ -11,6 +11,7 @@ object SettingsStore {
     private const val KEY_QUICK_APPS = "quick_apps"
     private const val KEY_INTRO_VIDEO_URI = "intro_video_uri"
     private const val KEY_INTRO_PLAYED = "intro_played"
+    private const val KEY_INTRO_VIDEO_ROTATION = "intro_video_rotation"
 
     fun isTouchLockEnabled(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_TOUCH_LOCK, false)
@@ -82,5 +83,19 @@ object SettingsStore {
     fun setIntroPlayed(context: Context, played: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean(KEY_INTRO_PLAYED, played).apply()
+    }
+
+    /**
+     * Góc xoay thủ công (0/90/180/270) cho video mở app — dùng cho trường hợp video
+     * có nội dung bị nghiêng sẵn trong file (không có cờ rotation metadata để tự phát
+     * hiện được), người dùng tự chỉnh qua nút "Xoay video". Mặc định 0 = không xoay,
+     * giữ nguyên hành vi tự động phát hiện dọc/ngang như trước.
+     */
+    fun getIntroVideoRotation(context: Context): Int =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_INTRO_VIDEO_ROTATION, 0)
+
+    fun setIntroVideoRotation(context: Context, degrees: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putInt(KEY_INTRO_VIDEO_ROTATION, degrees).apply()
     }
 }
