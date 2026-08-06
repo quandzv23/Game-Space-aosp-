@@ -4,12 +4,15 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -38,6 +41,11 @@ class OverlayBubbleService : Service() {
     private var screenHeightPx = 0
     private var panelWidthPx = 0
     private var tabHeightPx = 0
+
+    // Giữ CPU/game chạy khi màn hình bị tắt qua nút "Tắt màn hình" — không có cái này
+    // hệ thống sẽ cho cả process ngủ theo màn hình, auto-click/game sẽ đứng luôn.
+    private var screenOffWakeLock: PowerManager.WakeLock? = null
+    private var screenOnReceiver: BroadcastReceiver? = null
     private var isPanelOpen = false
 
     private var currentProfile: PerfProfileManager.Profile = PerfProfileManager.Profile.BALANCED
@@ -258,6 +266,29 @@ class OverlayBubbleService : Service() {
                     } else {
                         playTileShake(clearRamTile)
                         clearRamState.text = "Lỗi — cần root"
+                    }
+                }
+            }
+        }
+
+        val screenOffTile = view.findViewById<View>(R.id.row_screen_off)
+        val screenOffState = view.findViewById<TextView>(R.id.screen_off_state)
+        screenOffTile.setOnClickListener {
+            screenOffState.text = "Đang tắt..."
+            thread {
+                // Giữ CPU chạy TRƯỚC khi tắt màn hình, không thì game/auto-click bị hệ
+                // thống cho ngủ theo màn hình luôn — mất hết tác dụng.
+                acquireScreenOffWakeLock()
+                val ok = PerfProfileManager.turnScreenOff()
+                Handler(Looper.getMainLooper()).post {
+                    if (ok) {
+                        playTilePunch(screenOffTile)
+                        screenOffState.text = "Bấm nguồn để mở lại"
+                        snapPanelClosed()
+                    } else {
+                        releaseScreenOffWakeLock()
+                        playTileShake(screenOffTile)
+                        screenOffState.text = "Lỗi — cần root"
                     }
                 }
             }
@@ -639,10 +670,43 @@ class OverlayBubbleService : Service() {
         wifiLock = null
     }
 
+    /**
+     * Giữ CPU chạy (PARTIAL_WAKE_LOCK — không giữ màn hình sáng, đúng ý cần) trước khi
+     * tắt màn hình thật qua root, để game/auto-click vẫn tiếp tục xử lý ở chế độ nền
+     * dù màn hình đã tắt. Tự đăng ký lắng nghe ACTION_SCREEN_ON để nhả wake lock ngay
+     * khi người dùng bấm nguồn mở màn hình lại — tránh giữ mãi làm hao pin ngược.
+     */
+    private fun acquireScreenOffWakeLock() {
+        if (screenOffWakeLock?.isHeld == true) return
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val lock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Qspace:ScreenOffPlay")
+        lock.setReferenceCounted(false)
+        lock.acquire(10 * 60 * 1000L) // tự nhả sau tối đa 10 phút phòng trường hợp lỡ quên, tránh hao pin vô hạn
+        screenOffWakeLock = lock
+
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                releaseScreenOffWakeLock()
+            }
+        }
+        screenOnReceiver = receiver
+        registerReceiver(receiver, IntentFilter(Intent.ACTION_SCREEN_ON))
+    }
+
+    private fun releaseScreenOffWakeLock() {
+        screenOffWakeLock?.let { if (it.isHeld) it.release() }
+        screenOffWakeLock = null
+        screenOnReceiver?.let {
+            try { unregisterReceiver(it) } catch (e: Exception) { }
+        }
+        screenOnReceiver = null
+    }
+
     override fun onDestroy() {
         stopPanelStatsPolling()
         hideTouchLock()
         disableWifiOptimization()
+        releaseScreenOffWakeLock()
         tabView?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }
         panelView?.let { try { windowManager.removeView(it) } catch (e: Exception) { } }
         tabView = null

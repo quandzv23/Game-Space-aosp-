@@ -370,8 +370,25 @@
                 android:textColor="@color/text_secondary" android:textSize="7sp" />
         </LinearLayout>
         <LinearLayout
-            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-            android:layout_marginEnd="5dp" android:paddingVertical="8dp" />
+            android:id="@+id/row_screen_off"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="5dp"
+            android:background="@drawable/tile_bg_inactive"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="8dp">
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="🌑" android:textSize="16sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="2dp" android:text="Tắt màn hình"
+                android:textColor="@color/text_primary" android:textSize="8sp" />
+            <TextView android:id="@+id/screen_off_state" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text=""
+                android:textColor="@color/text_secondary" android:textSize="7sp" />
+        </LinearLayout>
         <LinearLayout
             android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
             android:paddingVertical="8dp" />

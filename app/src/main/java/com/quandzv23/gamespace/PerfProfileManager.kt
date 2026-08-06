@@ -169,6 +169,17 @@ object PerfProfileManager {
         return results.all { it }
     }
 
+    /**
+     * Tắt màn hình thật (giả lập bấm nút nguồn qua root) để chạy nền/AFK farm,
+     * không phải overlay đen giả — máy thật sự tắt hình, tiết kiệm pin đúng nghĩa.
+     * Bên gọi (OverlayBubbleService) phải giữ PARTIAL_WAKE_LOCK TRƯỚC khi gọi hàm này,
+     * nếu không game/CPU sẽ bị hệ thống cho ngủ theo màn hình, auto-click sẽ dừng luôn.
+     */
+    fun turnScreenOff(): Boolean {
+        val result = Shell.cmd("input keyevent 26").exec()
+        return result.isSuccess
+    }
+
     /** Ghi sysfs qua root, trả về true/false theo kết quả THẬT của lệnh shell. */
     private fun writeSysfs(path: String, value: String): Boolean {
         val result = Shell.cmd("echo $value > $path").exec()
