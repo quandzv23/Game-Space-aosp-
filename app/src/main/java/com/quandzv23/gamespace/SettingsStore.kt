@@ -12,6 +12,8 @@ object SettingsStore {
     private const val KEY_INTRO_VIDEO_URI = "intro_video_uri"
     private const val KEY_INTRO_PLAYED = "intro_played"
     private const val KEY_INTRO_VIDEO_ROTATION = "intro_video_rotation"
+    private const val KEY_INTRO_VIDEO_ENABLED = "intro_video_enabled"
+    private const val KEY_INTRO_VIDEO_HISTORY = "intro_video_history"
 
     fun isTouchLockEnabled(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_TOUCH_LOCK, false)
@@ -97,5 +99,65 @@ object SettingsStore {
     fun setIntroVideoRotation(context: Context, degrees: Int) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putInt(KEY_INTRO_VIDEO_ROTATION, degrees).apply()
+    }
+
+    /**
+     * Có đang dùng video mở app hay không. false = quay về animation gốc (logo bụp +
+     * sóng xung + khép tròn) dù URI video vẫn còn được lưu — bấm "Video: Bật" lại là
+     * dùng video ngay, khỏi phải chọn lại file.
+     */
+    fun isIntroVideoEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_INTRO_VIDEO_ENABLED, true)
+
+    fun setIntroVideoEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_INTRO_VIDEO_ENABLED, enabled).apply()
+    }
+
+    /**
+     * Danh sách video đã từng thêm (mới nhất ở đầu), mỗi video nhớ riêng góc xoay của nó
+     * -> chuyển qua lại giữa các video không bị mất góc xoay đã chỉnh trước đó.
+     * Lưu dạng "uri::ROT::độ", mỗi dòng 1 video, tối đa 6 video gần nhất.
+     */
+    private const val HISTORY_SEPARATOR = "::ROT::"
+    private const val HISTORY_MAX = 6
+
+    fun getIntroVideoHistory(context: Context): List<Pair<String, Int>> {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_INTRO_VIDEO_HISTORY, "") ?: ""
+        if (raw.isBlank()) return emptyList()
+        return raw.split("\n").mapNotNull { entry ->
+            val idx = entry.lastIndexOf(HISTORY_SEPARATOR)
+            if (idx < 0) return@mapNotNull null
+            val uri = entry.substring(0, idx)
+            val deg = entry.substring(idx + HISTORY_SEPARATOR.length).toIntOrNull() ?: 0
+            uri to deg
+        }
+    }
+
+    private fun saveIntroVideoHistory(context: Context, list: List<Pair<String, Int>>) {
+        val encoded = list.joinToString("\n") { "${it.first}$HISTORY_SEPARATOR${it.second}" }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_INTRO_VIDEO_HISTORY, encoded).apply()
+    }
+
+    /** Thêm video mới chọn vào đầu danh sách (đưa lên đầu nếu đã có sẵn), giới hạn 6 video gần nhất. */
+    fun addIntroVideoToHistory(context: Context, uri: String, rotation: Int) {
+        val current = getIntroVideoHistory(context).toMutableList()
+        current.removeAll { it.first == uri }
+        current.add(0, uri to rotation)
+        saveIntroVideoHistory(context, current.take(HISTORY_MAX))
+    }
+
+    /** Cập nhật lại góc xoay đã lưu cho 1 video có sẵn trong danh sách, không đổi thứ tự. */
+    fun updateIntroVideoRotationInHistory(context: Context, uri: String, rotation: Int) {
+        val current = getIntroVideoHistory(context).toMutableList()
+        val idx = current.indexOfFirst { it.first == uri }
+        if (idx >= 0) {
+            current[idx] = uri to rotation
+        } else {
+            current.add(0, uri to rotation)
+        }
+        saveIntroVideoHistory(context, current.take(HISTORY_MAX))
     }
 }

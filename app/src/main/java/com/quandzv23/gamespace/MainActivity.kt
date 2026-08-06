@@ -53,7 +53,10 @@ class MainActivity : AppCompatActivity() {
             SettingsStore.setIntroVideoUri(this, uri.toString())
             // Video mới -> góc xoay cũ (nếu có) không còn đúng nữa, reset về 0.
             SettingsStore.setIntroVideoRotation(this, 0)
+            SettingsStore.addIntroVideoToHistory(this, uri.toString(), 0)
+            SettingsStore.setIntroVideoEnabled(this, true)
             findViewById<TextView>(R.id.btn_rotate_intro_video).text = "Xoay: 0°"
+            findViewById<TextView>(R.id.btn_toggle_intro_video).text = "Video: Bật"
             Toast.makeText(this, "Đã đổi video mở app", Toast.LENGTH_SHORT).show()
         }
 
@@ -141,8 +144,30 @@ class MainActivity : AppCompatActivity() {
             val current = SettingsStore.getIntroVideoRotation(this)
             val next = (current + 90) % 360
             SettingsStore.setIntroVideoRotation(this, next)
+            // Nhớ luôn góc xoay này riêng cho video đang chọn, để lỡ chuyển qua video
+            // khác rồi quay lại thì không phải chỉnh lại từ đầu.
+            SettingsStore.getIntroVideoUri(this)?.let {
+                SettingsStore.updateIntroVideoRotationInHistory(this, it, next)
+            }
             rotateBtn.text = "Xoay: $next°"
             Toast.makeText(this, "Vuốt app khỏi Recents rồi mở lại để xem thử", Toast.LENGTH_SHORT).show()
+        }
+
+        val toggleBtn = findViewById<TextView>(R.id.btn_toggle_intro_video)
+        toggleBtn.text = if (SettingsStore.isIntroVideoEnabled(this)) "Video: Bật" else "Video: Tắt"
+        toggleBtn.setOnClickListener {
+            val nowEnabled = !SettingsStore.isIntroVideoEnabled(this)
+            SettingsStore.setIntroVideoEnabled(this, nowEnabled)
+            toggleBtn.text = if (nowEnabled) "Video: Bật" else "Video: Tắt"
+            Toast.makeText(
+                this,
+                if (nowEnabled) "Đã bật lại video mở app" else "Đã tắt — dùng animation gốc",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        findViewById<TextView>(R.id.btn_pick_saved_video).setOnClickListener {
+            showSavedVideoPicker()
         }
 
         val switch = findViewById<SwitchCompat>(R.id.switch_service)
@@ -213,11 +238,62 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Lấy tên file hiển thị cho 1 content URI, dùng để liệt kê trong danh sách "Video đã thêm". */
+    private fun displayNameForUri(uriString: String): String {
+        return try {
+            val uri = Uri.parse(uriString)
+            var name: String? = null
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0 && cursor.moveToFirst()) {
+                    name = cursor.getString(idx)
+                }
+            }
+            name ?: uri.lastPathSegment ?: "Video"
+        } catch (e: Exception) {
+            "Video"
+        }
+    }
+
+    /**
+     * Danh sách chọn nhanh giữa các video đã thêm trước đó + animation gốc, khỏi phải
+     * mở lại trình duyệt file mỗi lần muốn đổi qua đổi lại.
+     */
+    private fun showSavedVideoPicker() {
+        val history = SettingsStore.getIntroVideoHistory(this)
+        val labels = mutableListOf("🎬 Animation gốc (mặc định, không dùng video)")
+        labels.addAll(history.map { (uri, rotation) -> "${displayNameForUri(uri)}  (xoay ${rotation}°)" })
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Chọn video mở app")
+            .setItems(labels.toTypedArray()) { _, which ->
+                if (which == 0) {
+                    SettingsStore.setIntroVideoEnabled(this, false)
+                    findViewById<TextView>(R.id.btn_toggle_intro_video).text = "Video: Tắt"
+                    Toast.makeText(this, "Đã chuyển về animation gốc", Toast.LENGTH_SHORT).show()
+                } else {
+                    val (uri, rotation) = history[which - 1]
+                    SettingsStore.setIntroVideoUri(this, uri)
+                    SettingsStore.setIntroVideoRotation(this, rotation)
+                    SettingsStore.setIntroVideoEnabled(this, true)
+                    findViewById<TextView>(R.id.btn_rotate_intro_video).text = "Xoay: $rotation°"
+                    findViewById<TextView>(R.id.btn_toggle_intro_video).text = "Video: Bật"
+                    Toast.makeText(this, "Đã chọn: ${displayNameForUri(uri)}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Đóng", null)
+            .show()
+    }
+
     /** Animation nhẹ lúc vừa mở app: header + card trượt lên và mờ dần vào. */
     private fun playEntranceAnimation() {
         val overlay = findViewById<android.view.View>(R.id.open_anim_overlay)
 
-        val introUriString = SettingsStore.getIntroVideoUri(this)
+        val introUriString = if (SettingsStore.isIntroVideoEnabled(this)) {
+            SettingsStore.getIntroVideoUri(this)
+        } else {
+            null
+        }
         if (introUriString != null) {
             if (playIntroVideo(overlay, Uri.parse(introUriString))) return
             // Không phát được video (file bị xóa/thu hồi quyền...) -> rơi về animation mặc định
