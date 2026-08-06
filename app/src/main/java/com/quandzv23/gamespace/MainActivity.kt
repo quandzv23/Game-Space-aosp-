@@ -34,6 +34,10 @@ class MainActivity : AppCompatActivity() {
     private var selectedGame: String? = null
     private var introPlayer: ExoPlayer? = null
     private var introBgPlayer: ExoPlayer? = null
+    // View của dialog "Cài đặt" đang mở (null nếu đang đóng) — các hàm xử lý video/root/
+    // đa nhiệm cần tìm view CON BÊN TRONG dialog này thay vì tìm trên Activity gốc, vì
+    // những view đó (nút đổi video, trạng thái root...) giờ chỉ tồn tại trong dialog.
+    private var settingsMenuView: android.view.View? = null
 
     // Chọn file video mp4 từ máy để dùng làm hiệu ứng lúc mở app.
     // Dùng OpenDocument (thay vì GetContent) để xin được quyền truy cập lâu dài (persistable),
@@ -55,8 +59,8 @@ class MainActivity : AppCompatActivity() {
             SettingsStore.setIntroVideoRotation(this, 0)
             SettingsStore.addIntroVideoToHistory(this, uri.toString(), 0)
             SettingsStore.setIntroVideoEnabled(this, true)
-            findViewById<TextView>(R.id.btn_rotate_intro_video).text = "Xoay: 0°"
-            findViewById<TextView>(R.id.btn_toggle_intro_video).text = "Video: Bật"
+            settingsMenuView?.findViewById<TextView>(R.id.btn_rotate_intro_video)?.text = "Xoay: 0°"
+            settingsMenuView?.findViewById<TextView>(R.id.btn_toggle_intro_video)?.text = "Video: Bật"
             Toast.makeText(this, "Đã đổi video mở app", Toast.LENGTH_SHORT).show()
         }
 
@@ -82,7 +86,6 @@ class MainActivity : AppCompatActivity() {
             playEntranceAnimation()
         }
         ensurePermissions()
-        scanRootAccess()
 
         val listView = findViewById<RecyclerView>(R.id.game_list)
         listView.layoutManager = LinearLayoutManager(this)
@@ -113,30 +116,55 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        findViewById<TextView>(R.id.root_status_action).setOnClickListener {
-            scanRootAccess()
+        findViewById<TextView>(R.id.btn_open_settings_menu).setOnClickListener {
+            showSettingsMenu(openQuickAppPickerAfter = false)
         }
 
-        refreshQuickApps()
-        findViewById<TextView>(R.id.btn_add_quick_app).setOnClickListener {
-            showInstalledAppsPicker { pkg ->
-                SettingsStore.addQuickApp(this, pkg)
-                refreshQuickApps()
-            }
-        }
-
+        // Được mở từ shortcut/widget bên ngoài để thêm nhanh 1 app đa nhiệm -> mở luôn
+        // menu cài đặt (nơi giờ chứa mục Đa nhiệm nhanh) rồi bật sẵn bộ chọn app.
         if (intent?.getBooleanExtra("open_add_quick_app", false) == true) {
-            showInstalledAppsPicker { pkg ->
-                SettingsStore.addQuickApp(this, pkg)
-                refreshQuickApps()
+            showSettingsMenu(openQuickAppPickerAfter = true)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        statsRunning = true
+        statsHandler.post(statsRunnable)
+    }
+
+    /**
+     * Menu "Cài đặt" gộp mọi tính năng ngoài phần chọn/chơi game (theo dõi nền, video
+     * mở app, trạng thái root, đa nhiệm nhanh) — mở qua nút ⋮ ở góc trên, để màn hình
+     * chính chỉ còn thuần danh sách game + khung showcase.
+     */
+    private fun showSettingsMenu(openQuickAppPickerAfter: Boolean) {
+        val menuView = layoutInflater.inflate(R.layout.settings_menu, null)
+        settingsMenuView = menuView
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setView(menuView)
+            .setOnDismissListener { settingsMenuView = null }
+            .create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        // Theo dõi nền
+        val switch = menuView.findViewById<SwitchCompat>(R.id.switch_service)
+        switch.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                startForegroundService(Intent(this, GameWatcherService::class.java))
+                Toast.makeText(this, "Qspace đang chạy nền", Toast.LENGTH_SHORT).show()
+            } else {
+                stopService(Intent(this, GameWatcherService::class.java))
             }
         }
 
-        findViewById<TextView>(R.id.btn_change_intro_video).setOnClickListener {
+        // Video mở app
+        menuView.findViewById<TextView>(R.id.btn_change_intro_video).setOnClickListener {
             pickIntroVideoLauncher.launch(arrayOf("video/*"))
         }
 
-        val rotateBtn = findViewById<TextView>(R.id.btn_rotate_intro_video)
+        val rotateBtn = menuView.findViewById<TextView>(R.id.btn_rotate_intro_video)
         rotateBtn.text = "Xoay: ${SettingsStore.getIntroVideoRotation(this)}°"
         rotateBtn.setOnClickListener {
             // Chỉ để chỉnh cho video có nội dung nghiêng sẵn trong file (không có cờ
@@ -153,7 +181,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Vuốt app khỏi Recents rồi mở lại để xem thử", Toast.LENGTH_SHORT).show()
         }
 
-        val toggleBtn = findViewById<TextView>(R.id.btn_toggle_intro_video)
+        val toggleBtn = menuView.findViewById<TextView>(R.id.btn_toggle_intro_video)
         toggleBtn.text = if (SettingsStore.isIntroVideoEnabled(this)) "Video: Bật" else "Video: Tắt"
         toggleBtn.setOnClickListener {
             val nowEnabled = !SettingsStore.isIntroVideoEnabled(this)
@@ -166,25 +194,36 @@ class MainActivity : AppCompatActivity() {
             ).show()
         }
 
-        findViewById<TextView>(R.id.btn_pick_saved_video).setOnClickListener {
+        menuView.findViewById<TextView>(R.id.btn_pick_saved_video).setOnClickListener {
             showSavedVideoPicker()
         }
 
-        val switch = findViewById<SwitchCompat>(R.id.switch_service)
-        switch.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                startForegroundService(Intent(this, GameWatcherService::class.java))
-                Toast.makeText(this, "Qspace đang chạy nền", Toast.LENGTH_SHORT).show()
-            } else {
-                stopService(Intent(this, GameWatcherService::class.java))
+        // Trạng thái root
+        val rootIcon = menuView.findViewById<TextView>(R.id.root_status_icon)
+        val rootTitle = menuView.findViewById<TextView>(R.id.root_status_title)
+        scanRootAccess(rootIcon, rootTitle)
+        menuView.findViewById<TextView>(R.id.root_status_action).setOnClickListener {
+            scanRootAccess(rootIcon, rootTitle)
+        }
+
+        // Đa nhiệm nhanh
+        val quickAppsRow = menuView.findViewById<android.widget.LinearLayout>(R.id.quick_apps_row)
+        refreshQuickApps(quickAppsRow)
+        menuView.findViewById<TextView>(R.id.btn_add_quick_app).setOnClickListener {
+            showInstalledAppsPicker { pkg ->
+                SettingsStore.addQuickApp(this, pkg)
+                refreshQuickApps(quickAppsRow)
             }
         }
-    }
 
-    override fun onResume() {
-        super.onResume()
-        statsRunning = true
-        statsHandler.post(statsRunnable)
+        dialog.show()
+
+        if (openQuickAppPickerAfter) {
+            showInstalledAppsPicker { pkg ->
+                SettingsStore.addQuickApp(this, pkg)
+                refreshQuickApps(quickAppsRow)
+            }
+        }
     }
 
     override fun onPause() {
@@ -269,15 +308,15 @@ class MainActivity : AppCompatActivity() {
             .setItems(labels.toTypedArray()) { _, which ->
                 if (which == 0) {
                     SettingsStore.setIntroVideoEnabled(this, false)
-                    findViewById<TextView>(R.id.btn_toggle_intro_video).text = "Video: Tắt"
+                    settingsMenuView?.findViewById<TextView>(R.id.btn_toggle_intro_video)?.text = "Video: Tắt"
                     Toast.makeText(this, "Đã chuyển về animation gốc", Toast.LENGTH_SHORT).show()
                 } else {
                     val (uri, rotation) = history[which - 1]
                     SettingsStore.setIntroVideoUri(this, uri)
                     SettingsStore.setIntroVideoRotation(this, rotation)
                     SettingsStore.setIntroVideoEnabled(this, true)
-                    findViewById<TextView>(R.id.btn_rotate_intro_video).text = "Xoay: $rotation°"
-                    findViewById<TextView>(R.id.btn_toggle_intro_video).text = "Video: Bật"
+                    settingsMenuView?.findViewById<TextView>(R.id.btn_rotate_intro_video)?.text = "Xoay: $rotation°"
+                    settingsMenuView?.findViewById<TextView>(R.id.btn_toggle_intro_video)?.text = "Video: Bật"
                     Toast.makeText(this, "Đã chọn: ${displayNameForUri(uri)}", Toast.LENGTH_SHORT).show()
                 }
             }
@@ -489,10 +528,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Quét thật xem app có quyền root dùng được không, chạy ở thread nền vì Shell.getShell() có thể chặn. */
-    private fun scanRootAccess() {
-        val icon = findViewById<TextView>(R.id.root_status_icon)
-        val title = findViewById<TextView>(R.id.root_status_title)
-
+    private fun scanRootAccess(icon: TextView, title: TextView) {
         title.text = "Đang quét root..."
         icon.text = "?"
 
@@ -671,8 +707,7 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun refreshQuickApps() {
-        val row = findViewById<android.widget.LinearLayout>(R.id.quick_apps_row)
+    private fun refreshQuickApps(row: android.widget.LinearLayout) {
         row.removeAllViews()
         val pm = packageManager
         for (pkg in SettingsStore.getQuickApps(this).toList().sorted()) {
@@ -688,7 +723,7 @@ class MainActivity : AppCompatActivity() {
             }
             itemView.setOnLongClickListener {
                 SettingsStore.removeQuickApp(this, pkg)
-                refreshQuickApps()
+                refreshQuickApps(row)
                 true
             }
             row.addView(itemView)

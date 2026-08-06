@@ -41,6 +41,9 @@ class OverlayBubbleService : Service() {
     private var screenHeightPx = 0
     private var panelWidthPx = 0
     private var tabHeightPx = 0
+    // Ở chế độ dọc, thanh vuốt cách mép trái màn hình 1 khoảng nhỏ thay vì dính sát mép
+    // (game dọc thường có UI/nút bấm sát viền, dính mép dễ đụng/khó bấm hơn).
+    private var portraitTabOffsetPx = 0
 
     // Giữ CPU/game chạy khi màn hình bị tắt qua nút "Tắt màn hình" — không có cái này
     // hệ thống sẽ cho cả process ngủ theo màn hình, auto-click/game sẽ đứng luôn.
@@ -79,6 +82,7 @@ class OverlayBubbleService : Service() {
         // Trước đây dùng số "150" cứng (đơn vị px thực tế nhưng viết như dp) -> sai trên
         // máy mật độ điểm ảnh khác 1x, giờ tính đúng theo density của máy.
         tabHeightPx = (190 * dm.density).toInt()
+        portraitTabOffsetPx = (10 * dm.density).toInt()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -99,7 +103,8 @@ class OverlayBubbleService : Service() {
     private fun resetTabToEdge() {
         if (isPanelOpen) snapPanelClosed()
         tabParams?.let {
-            it.x = 0
+            val isPortrait = screenHeightPx > screenWidthPx
+            it.x = if (isPortrait) portraitTabOffsetPx else 0
             it.y = it.y.coerceIn(0, screenHeightPx - tabHeightPx)
             tabView?.let { tv -> try { windowManager.updateViewLayout(tv, it) } catch (e: Exception) { } }
         }
@@ -118,7 +123,7 @@ class OverlayBubbleService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 0
+            x = if (screenHeightPx > screenWidthPx) portraitTabOffsetPx else 0
             y = SettingsStore.getTabYPosition(this@OverlayBubbleService)
         }
         tabParams = params
