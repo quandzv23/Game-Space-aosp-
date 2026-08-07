@@ -166,7 +166,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Video mở app
-        menuView.findViewById<TextView>(R.id.btn_change_intro_video).setOnClickListener {
+        menuView.findViewById<android.view.View>(R.id.btn_change_intro_video).setOnClickListener {
             pickIntroVideoLauncher.launch(
                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
             )
