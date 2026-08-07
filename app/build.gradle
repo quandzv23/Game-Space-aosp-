@@ -39,6 +39,9 @@ dependencies {
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'androidx.coordinatorlayout:coordinatorlayout:1.2.0'
+    // Cần bản mới để chắc chắn có PickVisualMedia (Photo Picker) — tránh phụ thuộc ngầm
+    // vào bản kéo theo qua appcompat, dễ vỡ khi appcompat đổi version sau này.
+    implementation 'androidx.activity:activity-ktx:1.9.3'
 
     // Root shell access — works with KernelSU's su binary (Atlas kernel already has KernelSU)
     implementation 'com.github.topjohnwu.libsu:core:5.2.2'

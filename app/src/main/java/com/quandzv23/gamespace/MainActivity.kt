@@ -15,6 +15,7 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
@@ -33,17 +34,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var adapter: GameAdapter
     private var selectedGame: String? = null
     private var introPlayer: ExoPlayer? = null
-    private var introBgPlayer: ExoPlayer? = null
     // View của dialog "Cài đặt" đang mở (null nếu đang đóng) — các hàm xử lý video/root/
     // đa nhiệm cần tìm view CON BÊN TRONG dialog này thay vì tìm trên Activity gốc, vì
     // những view đó (nút đổi video, trạng thái root...) giờ chỉ tồn tại trong dialog.
     private var settingsMenuView: android.view.View? = null
 
-    // Chọn file video mp4 từ máy để dùng làm hiệu ứng lúc mở app.
-    // Dùng OpenDocument (thay vì GetContent) để xin được quyền truy cập lâu dài (persistable),
-    // vì video sẽ được VideoView đọc lại ở mỗi lần mở app sau này, không chỉ lần chọn.
+    // Chọn video mở app bằng Photo Picker gốc của Android (lưới thumbnail đẹp, không
+    // cần xin quyền đọc bộ nhớ) thay vì trình duyệt file cũ. Vẫn xin persistable
+    // permission như trước để phát lại được video ở những lần mở app sau, kể cả sau
+    // khi khởi động lại máy — Photo Picker hỗ trợ y hệt cơ chế này.
     private val pickIntroVideoLauncher =
-        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             if (uri == null) return@registerForActivityResult
             try {
                 contentResolver.takePersistableUriPermission(
@@ -60,7 +61,7 @@ class MainActivity : AppCompatActivity() {
             SettingsStore.addIntroVideoToHistory(this, uri.toString(), 0)
             SettingsStore.setIntroVideoEnabled(this, true)
             settingsMenuView?.findViewById<TextView>(R.id.btn_rotate_intro_video)?.text = "Xoay: 0°"
-            settingsMenuView?.findViewById<TextView>(R.id.btn_toggle_intro_video)?.text = "Video: Bật"
+            syncIntroVideoCard(settingsMenuView)
             Toast.makeText(this, "Đã đổi video mở app", Toast.LENGTH_SHORT).show()
         }
 
@@ -161,7 +162,9 @@ class MainActivity : AppCompatActivity() {
 
         // Video mở app
         menuView.findViewById<TextView>(R.id.btn_change_intro_video).setOnClickListener {
-            pickIntroVideoLauncher.launch(arrayOf("video/*"))
+            pickIntroVideoLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+            )
         }
 
         val rotateBtn = menuView.findViewById<TextView>(R.id.btn_rotate_intro_video)
@@ -181,18 +184,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Vuốt app khỏi Recents rồi mở lại để xem thử", Toast.LENGTH_SHORT).show()
         }
 
-        val toggleBtn = menuView.findViewById<TextView>(R.id.btn_toggle_intro_video)
-        toggleBtn.text = if (SettingsStore.isIntroVideoEnabled(this)) "Video: Bật" else "Video: Tắt"
-        toggleBtn.setOnClickListener {
-            val nowEnabled = !SettingsStore.isIntroVideoEnabled(this)
-            SettingsStore.setIntroVideoEnabled(this, nowEnabled)
-            toggleBtn.text = if (nowEnabled) "Video: Bật" else "Video: Tắt"
-            Toast.makeText(
-                this,
-                if (nowEnabled) "Đã bật lại video mở app" else "Đã tắt — dùng animation gốc",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
+        syncIntroVideoCard(menuView)
 
         menuView.findViewById<TextView>(R.id.btn_pick_saved_video).setOnClickListener {
             showSavedVideoPicker()
@@ -236,8 +228,6 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         introPlayer?.release()
         introPlayer = null
-        introBgPlayer?.release()
-        introBgPlayer = null
     }
 
     /** Đưa 1 game lên khung showcase trung tâm. */
@@ -295,6 +285,34 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * Đồng bộ lại thẻ "Video mở app" trong menu Cài đặt (switch bật/tắt + dòng tên
+     * video đang dùng) theo đúng trạng thái đang lưu — gọi lại mỗi khi trạng thái đổi
+     * (chọn video mới, bật/tắt, chọn từ danh sách đã thêm...).
+     */
+    private fun syncIntroVideoCard(menuView: android.view.View?) {
+        menuView ?: return
+        val enabled = SettingsStore.isIntroVideoEnabled(this)
+        val switch = menuView.findViewById<SwitchCompat>(R.id.switch_intro_video_enabled)
+        switch.setOnCheckedChangeListener(null)
+        switch.isChecked = enabled
+        switch.setOnCheckedChangeListener { _, isChecked -> toggleIntroVideo(menuView, isChecked) }
+
+        val nameView = menuView.findViewById<TextView>(R.id.intro_video_current_name)
+        val uri = SettingsStore.getIntroVideoUri(this)
+        nameView.text = if (enabled && uri != null) displayNameForUri(uri) else "Animation gốc"
+    }
+
+    private fun toggleIntroVideo(menuView: android.view.View, enabled: Boolean) {
+        SettingsStore.setIntroVideoEnabled(this, enabled)
+        syncIntroVideoCard(menuView)
+        Toast.makeText(
+            this,
+            if (enabled) "Đã bật lại video mở app" else "Đã tắt — dùng animation gốc",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    /**
      * Danh sách chọn nhanh giữa các video đã thêm trước đó + animation gốc, khỏi phải
      * mở lại trình duyệt file mỗi lần muốn đổi qua đổi lại.
      */
@@ -308,7 +326,7 @@ class MainActivity : AppCompatActivity() {
             .setItems(labels.toTypedArray()) { _, which ->
                 if (which == 0) {
                     SettingsStore.setIntroVideoEnabled(this, false)
-                    settingsMenuView?.findViewById<TextView>(R.id.btn_toggle_intro_video)?.text = "Video: Tắt"
+                    syncIntroVideoCard(settingsMenuView)
                     Toast.makeText(this, "Đã chuyển về animation gốc", Toast.LENGTH_SHORT).show()
                 } else {
                     val (uri, rotation) = history[which - 1]
@@ -316,7 +334,7 @@ class MainActivity : AppCompatActivity() {
                     SettingsStore.setIntroVideoRotation(this, rotation)
                     SettingsStore.setIntroVideoEnabled(this, true)
                     settingsMenuView?.findViewById<TextView>(R.id.btn_rotate_intro_video)?.text = "Xoay: $rotation°"
-                    settingsMenuView?.findViewById<TextView>(R.id.btn_toggle_intro_video)?.text = "Video: Bật"
+                    syncIntroVideoCard(settingsMenuView)
                     Toast.makeText(this, "Đã chọn: ${displayNameForUri(uri)}", Toast.LENGTH_SHORT).show()
                 }
             }
@@ -388,49 +406,34 @@ class MainActivity : AppCompatActivity() {
      * Dùng ExoPlayer (Media3) thay vì VideoView vì VideoView đọc sai kích thước với
      * video có metadata xoay (video quay dọc như TikTok) -> tính crop sai hướng.
      *
-     * TỐI ƯU: chỉ video DỌC mới cần lớp nền (2 decoder cùng lúc) để vừa đầy màn hình
-     * vừa không mất nội dung. Video NGANG có tỉ lệ đã gần khớp màn hình ngang sẵn rồi
-     * -> chỉ cần 1 lớp duy nhất ("zoom", phủ kín, gần như không mất gì đáng kể), đỡ tốn
-     * thêm 1 decoder chạy song song vô ích -> nhẹ máy, đỡ pin hơn.
-     *
-     * Video xoay ngang/dọc chỉ biết được sau khi player đã prepare() và báo
-     * onVideoSizeChanged (Media3 tự tính đúng theo metadata rotation, không như
-     * VideoView cũ) -> lớp nền được tạo LAZY ngay trong callback đó, chỉ khi thật sự
-     * cần, thay vì luôn tạo sẵn như trước.
+     * Đơn giản: 1 lớp duy nhất, luôn "fit" (hiện đủ 100% nội dung, không cắt, không
+     * zoom, không lớp nền phụ). Có viền tối 2 bên nếu tỉ lệ video khác màn hình —
+     * chấp nhận đánh đổi này để giữ mọi thứ đơn giản, nhẹ máy, không phèn.
      *
      * Trả về true nếu bắt đầu phát được; false nếu URI không dùng được (mất quyền,
      * file bị xóa...) -> rơi về animation mặc định ngay lập tức.
      */
     private fun playIntroVideo(overlay: android.view.View, uri: Uri): Boolean {
         val playerView = findViewById<PlayerView>(R.id.open_intro_video)
-        val bgPlayerView = findViewById<PlayerView>(R.id.open_intro_video_bg)
-        val scrim = findViewById<android.view.View>(R.id.open_intro_video_scrim)
-        var orientationDecided = false
+        playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
         // Góc xoay thủ công (nút "Xoay video") — dùng cho video có nội dung nghiêng
-        // sẵn trong file, không có cờ rotation để tự phát hiện được (như video F1 kiểu
-        // meme). Khi đã chỉnh tay, bỏ qua hẳn phần tự nhận diện dọc/ngang bên dưới,
-        // luôn dùng 1 lớp zoom vì sau khi xoay đúng, nội dung coi như đã "ngang" rồi.
+        // sẵn trong file, không có cờ rotation để tự phát hiện được (như video F1 kiểu meme).
         val manualRotation = SettingsStore.getIntroVideoRotation(this)
-        if (manualRotation != 0) {
-            orientationDecided = true
-            playerView.rotation = manualRotation.toFloat()
-            playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-            val dm = resources.displayMetrics
-            playerView.layoutParams = if (manualRotation == 90 || manualRotation == 270) {
-                // Xoay ngang <-> dọc: view trước khi xoay phải có kích thước ĐẢO chiều
-                // (rộng = chiều cao màn hình, cao = chiều rộng màn hình), để sau khi xoay
-                // 90/270 độ quanh tâm thì vừa khít đúng màn hình thật, không méo/hụt.
-                android.widget.FrameLayout.LayoutParams(dm.heightPixels, dm.widthPixels).apply {
-                    gravity = android.view.Gravity.CENTER
-                }
-            } else {
-                // 180 độ không đổi kích thước khung, chỉ lật ngược nội dung tại chỗ.
-                android.widget.FrameLayout.LayoutParams(
-                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
-                )
+        val dm = resources.displayMetrics
+        playerView.rotation = manualRotation.toFloat()
+        playerView.layoutParams = if (manualRotation == 90 || manualRotation == 270) {
+            // Xoay ngang <-> dọc: view trước khi xoay phải có kích thước ĐẢO chiều
+            // (rộng = chiều cao màn hình, cao = chiều rộng màn hình), để sau khi xoay
+            // 90/270 độ quanh tâm thì vừa khít đúng màn hình thật, không méo/hụt.
+            android.widget.FrameLayout.LayoutParams(dm.heightPixels, dm.widthPixels).apply {
+                gravity = android.view.Gravity.CENTER
             }
+        } else {
+            android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+            )
         }
 
         return try {
@@ -440,46 +443,14 @@ class MainActivity : AppCompatActivity() {
             playerView.visibility = android.view.View.VISIBLE
 
             player.addListener(object : Player.Listener {
-                override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
-                    if (orientationDecided) return
-                    orientationDecided = true
-
-                    val isPortrait = videoSize.height > videoSize.width
-                    if (isPortrait) {
-                        // Video dọc: hiện đủ 100% nội dung (fit) + dựng thêm lớp nền
-                        // zoom mờ để lấp khoảng trống 2 bên cho đầy màn hình.
-                        playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                        try {
-                            val bgPlayer = ExoPlayer.Builder(this@MainActivity).build()
-                            introBgPlayer = bgPlayer
-                            bgPlayerView.player = bgPlayer
-                            bgPlayerView.visibility = android.view.View.VISIBLE
-                            scrim.visibility = android.view.View.VISIBLE
-                            bgPlayer.setMediaItem(MediaItem.fromUri(uri))
-                            bgPlayer.playWhenReady = true
-                            bgPlayer.repeatMode = Player.REPEAT_MODE_ONE
-                            bgPlayer.prepare()
-                            // Đồng bộ tương đối vị trí phát để lớp nền không lệch quá xa lớp chính.
-                            bgPlayer.seekTo(player.currentPosition)
-                        } catch (e: Exception) {
-                            bgPlayerView.visibility = android.view.View.GONE
-                            scrim.visibility = android.view.View.GONE
-                        }
-                    } else {
-                        // Video ngang: 1 lớp duy nhất, zoom phủ kín màn hình ngang, không
-                        // cần lớp nền -> nhẹ máy hơn hẳn so với chạy 2 decoder song song.
-                        playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    }
-                }
-
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
-                        finishIntroVideo(overlay, playerView, player, bgPlayerView, scrim)
+                        finishIntroVideo(overlay, playerView, player)
                     }
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    finishIntroVideo(overlay, playerView, player, bgPlayerView, scrim)
+                    finishIntroVideo(overlay, playerView, player)
                 }
             })
 
@@ -493,22 +464,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun finishIntroVideo(
-        overlay: android.view.View,
-        playerView: PlayerView,
-        player: ExoPlayer,
-        bgPlayerView: PlayerView,
-        scrim: android.view.View
-    ) {
+    private fun finishIntroVideo(overlay: android.view.View, playerView: PlayerView, player: ExoPlayer) {
         playerView.visibility = android.view.View.GONE
         player.release()
         if (introPlayer === player) introPlayer = null
-
-        bgPlayerView.visibility = android.view.View.GONE
-        scrim.visibility = android.view.View.GONE
-        introBgPlayer?.release()
-        introBgPlayer = null
-
         revealRealUi(overlay)
     }
 
