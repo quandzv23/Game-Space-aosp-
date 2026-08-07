@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="72dp"
+    android:layout_height="72dp"
+    android:layout_marginEnd="8dp">
+
+    <ImageView
+        android:id="@+id/thumb_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/tile_bg_inactive"
+        android:scaleType="centerCrop" />
+
+    <!-- Nhãn góc dưới hiện góc xoay đã lưu, chỉ hiện khi khác 0° -->
+    <TextView
+        android:id="@+id/thumb_rotation_badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="3dp"
+        android:background="#99000000"
+        android:paddingHorizontal="4dp"
+        android:paddingVertical="1dp"
+        android:text="90°"
+        android:textColor="@color/accent_amber"
+        android:textSize="8sp"
+        android:visibility="gone" />
+
+    <View
+        android:id="@+id/thumb_selected_border"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/video_thumb_selected_border"
+        android:visibility="gone" />
+
+</FrameLayout>
