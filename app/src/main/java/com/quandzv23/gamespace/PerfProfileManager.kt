@@ -117,66 +117,85 @@ object PerfProfileManager {
         return result.isSuccess && result.out.any { it.isNotBlank() }
     }
 
+    private var gpuGovernorCaptured = false
+
     fun captureCurrentAsDefault() {
         defaultGovernor = readSysfs(CPU4_GOV_PATH) ?: defaultGovernor
         defaultCpu0MaxFreq = readSysfs(CPU0_MAX_FREQ_PATH) ?: defaultCpu0MaxFreq
         defaultCpu4MaxFreq = readSysfs(CPU4_MAX_FREQ_PATH) ?: defaultCpu4MaxFreq
         defaultGpuMaxFreq = readSysfs(GPU_MAX_FREQ_PATH) ?: defaultGpuMaxFreq
-        defaultGpuGovernor = readSysfs(GPU_GOVERNOR_PATH) ?: defaultGpuGovernor
+        val realGov = readSysfs(GPU_GOVERNOR_PATH)
+        if (realGov != null) {
+            defaultGpuGovernor = realGov
+            gpuGovernorCaptured = true
+        }
     }
 
     /**
-     * Trả về true CHỈ KHI toàn bộ giá trị đều ĐỌC LẠI ĐÚNG như đã ghi (không chỉ tin vào
-     * exit code của lệnh "echo" — kernel có thể âm thầm từ chối/làm tròn giá trị không phải
-     * bước tần số hợp lệ mà lệnh shell vẫn báo thành công). Tần số CPU cũng được tự động
-     * khớp về đúng bước gần nhất có trong bảng tần số thật của máy trước khi ghi, thay vì
-     * áp thẳng 1 số cứng có thể không tồn tại trên chip.
+     * Ghi profile hiệu năng, xác nhận THẬT từng giá trị qua đọc lại (xem writeSysfsVerified).
+     * Trả về danh sách các mục THẤT BẠI kèm tên dễ hiểu (rỗng = tất cả đều áp dụng thành
+     * công thật sự) — thay vì chỉ true/false chung chung, để biết CHÍNH XÁC node nào bị kernel
+     * từ chối, không phải đoán mò.
      */
-    fun applyGameProfile(profile: Profile): Boolean {
+    fun applyGameProfile(profile: Profile): List<String> {
         val cpu0Freqs = availableFreqs(CPU0_MAX_FREQ_PATH)
         val cpu4Freqs = availableFreqs(CPU4_MAX_FREQ_PATH)
-        val results = mutableListOf<Boolean>()
+        val failed = mutableListOf<String>()
+        fun check(label: String, ok: Boolean) {
+            if (!ok) failed += label
+        }
+
         when (profile) {
             Profile.PERFORMANCE -> {
-                results += writeSysfsVerified(CPU0_GOV_PATH, "performance")
-                results += writeSysfsVerified(CPU4_GOV_PATH, "performance")
-                results += writeSysfsVerified(CPU0_MAX_FREQ_PATH, nearestFreq(cpu0Freqs, 2210000))
-                results += writeSysfsVerified(CPU4_MAX_FREQ_PATH, nearestFreq(cpu4Freqs, 2210000))
-                results += writeSysfsVerified(GPU_GOVERNOR_PATH, "Static")
-                results += writeSysfsVerified(GPU_MAX_FREQ_PATH, "1196")
+                check("CPU nhỏ - governor", writeSysfsVerified(CPU0_GOV_PATH, "performance"))
+                check("CPU lớn - governor", writeSysfsVerified(CPU4_GOV_PATH, "performance"))
+                check("CPU nhỏ - tần số", writeSysfsVerified(CPU0_MAX_FREQ_PATH, nearestFreq(cpu0Freqs, 2210000)))
+                check("CPU lớn - tần số", writeSysfsVerified(CPU4_MAX_FREQ_PATH, nearestFreq(cpu4Freqs, 2210000)))
+                check("GPU - governor", writeSysfsVerified(GPU_GOVERNOR_PATH, "Static"))
+                check("GPU - tần số", writeSysfsVerified(GPU_MAX_FREQ_PATH, "1196"))
             }
             Profile.BALANCED -> {
-                results += writeSysfsVerified(CPU0_GOV_PATH, "schedutil")
-                results += writeSysfsVerified(CPU4_GOV_PATH, "schedutil")
-                results += writeSysfsVerified(CPU0_MAX_FREQ_PATH, defaultCpu0MaxFreq)
+                check("CPU nhỏ - governor", writeSysfsVerified(CPU0_GOV_PATH, "schedutil"))
+                check("CPU lớn - governor", writeSysfsVerified(CPU4_GOV_PATH, "schedutil"))
+                check("CPU nhỏ - tần số", writeSysfsVerified(CPU0_MAX_FREQ_PATH, defaultCpu0MaxFreq))
                 // 2106000 là mốc "giữa" chủ ý (nhanh hơn mặc định, thấp hơn hẳn mức OC full
                 // performance) — nhưng có thể KHÔNG phải bước tần số hợp lệ của chip, nên
                 // luôn khớp về bước thật gần nhất trước khi ghi.
-                results += writeSysfsVerified(CPU4_MAX_FREQ_PATH, nearestFreq(cpu4Freqs, 2106000))
-                results += writeSysfsVerified(GPU_GOVERNOR_PATH, defaultGpuGovernor)
-                results += writeSysfsVerified(GPU_MAX_FREQ_PATH, "1001")
+                check("CPU lớn - tần số", writeSysfsVerified(CPU4_MAX_FREQ_PATH, nearestFreq(cpu4Freqs, 2106000)))
+                // Chỉ ghi lại governor GPU nếu đã CHỤP ĐƯỢC giá trị thật của máy trước đó —
+                // nếu chưa từng chụp được (gpuGovernorCaptured=false), "defaultGpuGovernor"
+                // vẫn là chuỗi giữ chỗ "Default" không có thật -> ghi chắc chắn thất bại,
+                // nên bỏ qua bước này thay vì báo lỗi giả.
+                if (gpuGovernorCaptured) {
+                    check("GPU - governor", writeSysfsVerified(GPU_GOVERNOR_PATH, defaultGpuGovernor))
+                }
+                check("GPU - tần số", writeSysfsVerified(GPU_MAX_FREQ_PATH, "1001"))
             }
             Profile.BATTERY_SAVER -> {
-                results += writeSysfsVerified(CPU0_GOV_PATH, "powersave")
-                results += writeSysfsVerified(CPU4_GOV_PATH, "powersave")
-                results += writeSysfsVerified(CPU0_MAX_FREQ_PATH, defaultCpu0MaxFreq)
-                results += writeSysfsVerified(CPU4_MAX_FREQ_PATH, defaultCpu4MaxFreq)
-                results += writeSysfsVerified(GPU_GOVERNOR_PATH, defaultGpuGovernor)
-                results += writeSysfsVerified(GPU_MAX_FREQ_PATH, defaultGpuMaxFreq)
+                check("CPU nhỏ - governor", writeSysfsVerified(CPU0_GOV_PATH, "powersave"))
+                check("CPU lớn - governor", writeSysfsVerified(CPU4_GOV_PATH, "powersave"))
+                check("CPU nhỏ - tần số", writeSysfsVerified(CPU0_MAX_FREQ_PATH, defaultCpu0MaxFreq))
+                check("CPU lớn - tần số", writeSysfsVerified(CPU4_MAX_FREQ_PATH, defaultCpu4MaxFreq))
+                if (gpuGovernorCaptured) {
+                    check("GPU - governor", writeSysfsVerified(GPU_GOVERNOR_PATH, defaultGpuGovernor))
+                }
+                check("GPU - tần số", writeSysfsVerified(GPU_MAX_FREQ_PATH, defaultGpuMaxFreq))
             }
         }
-        return results.all { it }
+        return failed
     }
 
     fun restoreDefault(): Boolean {
-        val results = listOf(
+        val results = mutableListOf(
             writeSysfsVerified(CPU0_GOV_PATH, defaultGovernor),
             writeSysfsVerified(CPU4_GOV_PATH, defaultGovernor),
             writeSysfsVerified(CPU0_MAX_FREQ_PATH, defaultCpu0MaxFreq),
             writeSysfsVerified(CPU4_MAX_FREQ_PATH, defaultCpu4MaxFreq),
-            writeSysfsVerified(GPU_GOVERNOR_PATH, defaultGpuGovernor),
             writeSysfsVerified(GPU_MAX_FREQ_PATH, defaultGpuMaxFreq)
         )
+        if (gpuGovernorCaptured) {
+            results += writeSysfsVerified(GPU_GOVERNOR_PATH, defaultGpuGovernor)
+        }
         return results.all { it }
     }
 

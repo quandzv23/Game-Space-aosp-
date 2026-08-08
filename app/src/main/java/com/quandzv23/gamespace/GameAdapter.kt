@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 
 class GameAdapter(
@@ -23,9 +24,19 @@ class GameAdapter(
         val removeBtn: TextView = view.findViewById(R.id.btn_remove)
     }
 
+    /** DiffUtil thay vì notifyDataSetChanged() thô — chỉ động vào đúng dòng thay đổi. */
     fun submit(newPackages: List<String>) {
+        val oldPackages = packages
+        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = oldPackages.size
+            override fun getNewListSize() = newPackages.size
+            override fun areItemsTheSame(oldPos: Int, newPos: Int) =
+                oldPackages[oldPos] == newPackages[newPos]
+            override fun areContentsTheSame(oldPos: Int, newPos: Int) =
+                oldPackages[oldPos] == newPackages[newPos]
+        })
         packages = newPackages
-        notifyDataSetChanged()
+        diff.dispatchUpdatesTo(this)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ListViewHolder {

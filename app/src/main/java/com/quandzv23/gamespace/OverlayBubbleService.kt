@@ -380,9 +380,9 @@ class OverlayBubbleService : Service() {
         feedback.alpha = 1f
         feedback.text = "Đang áp dụng..."
         thread {
-            val success = PerfProfileManager.applyGameProfile(profile)
+            val failedNodes = PerfProfileManager.applyGameProfile(profile)
             Handler(Looper.getMainLooper()).post {
-                if (success) {
+                if (failedNodes.isEmpty()) {
                     currentProfile = profile
                     updateProfileHighlight(panel)
                     playTilePunch(tappedTile)
@@ -390,7 +390,7 @@ class OverlayBubbleService : Service() {
                     fadeInFeedback(feedback)
                 } else {
                     playTileShake(tappedTile)
-                    feedback.text = "✕ Không áp dụng được — kiểm tra quyền root / kernel không hỗ trợ mức này"
+                    feedback.text = "✕ Không áp dụng được: " + failedNodes.joinToString(", ")
                     fadeInFeedback(feedback)
                 }
             }

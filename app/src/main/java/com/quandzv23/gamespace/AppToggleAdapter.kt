@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.widget.SwitchCompat
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 
 class AppToggleAdapter(
@@ -23,9 +24,29 @@ class AppToggleAdapter(
         val switch: SwitchCompat = view.findViewById(R.id.toggle_item_switch)
     }
 
+    /**
+     * Dùng DiffUtil thay vì notifyDataSetChanged() thô — chỉ cập nhật ĐÚNG những dòng thực
+     * sự thay đổi (thêm/bớt 1 app), thay vì rebind toàn bộ danh sách đang hiển thị. Đây là
+     * nguyên nhân gốc của bug "thêm app xong bấm thoát bị mất app": notifyDataSetChanged()
+     * buộc RecyclerView tái sử dụng lại TẤT CẢ view đang hiện trên màn hình ngay lập tức,
+     * kể cả những dòng chẳng liên quan gì tới thao tác vừa bấm — nếu người dùng chạm/thả tay
+     * đúng lúc đó, sự kiện chạm có thể rơi vào 1 view vừa bị đổi nội dung sang app khác.
+     * DiffUtil chỉ động vào đúng vị trí thay đổi, các dòng khác giữ nguyên view cũ, loại bỏ
+     * hẳn khả năng này.
+     */
     fun submit(newApps: List<ApplicationInfo>) {
+        val oldApps = apps
+        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = oldApps.size
+            override fun getNewListSize() = newApps.size
+            override fun areItemsTheSame(oldPos: Int, newPos: Int) =
+                oldApps[oldPos].packageName == newApps[newPos].packageName
+            override fun areContentsTheSame(oldPos: Int, newPos: Int) =
+                oldApps[oldPos].packageName == newApps[newPos].packageName &&
+                    isOn(oldApps[oldPos].packageName) == isOn(newApps[newPos].packageName)
+        })
         apps = newApps
-        notifyDataSetChanged()
+        diff.dispatchUpdatesTo(this)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
