@@ -390,7 +390,7 @@ class OverlayBubbleService : Service() {
                     fadeInFeedback(feedback)
                 } else {
                     playTileShake(tappedTile)
-                    feedback.text = "✕ Ghi sysfs thất bại — kiểm tra quyền root"
+                    feedback.text = "✕ Không áp dụng được — kiểm tra quyền root / kernel không hỗ trợ mức này"
                     fadeInFeedback(feedback)
                 }
             }

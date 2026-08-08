@@ -125,33 +125,44 @@ object PerfProfileManager {
         defaultGpuGovernor = readSysfs(GPU_GOVERNOR_PATH) ?: defaultGpuGovernor
     }
 
-    /** Trả về true CHỈ KHI toàn bộ lệnh ghi sysfs đều thành công thật sự. */
+    /**
+     * Trả về true CHỈ KHI toàn bộ giá trị đều ĐỌC LẠI ĐÚNG như đã ghi (không chỉ tin vào
+     * exit code của lệnh "echo" — kernel có thể âm thầm từ chối/làm tròn giá trị không phải
+     * bước tần số hợp lệ mà lệnh shell vẫn báo thành công). Tần số CPU cũng được tự động
+     * khớp về đúng bước gần nhất có trong bảng tần số thật của máy trước khi ghi, thay vì
+     * áp thẳng 1 số cứng có thể không tồn tại trên chip.
+     */
     fun applyGameProfile(profile: Profile): Boolean {
+        val cpu0Freqs = availableFreqs(CPU0_MAX_FREQ_PATH)
+        val cpu4Freqs = availableFreqs(CPU4_MAX_FREQ_PATH)
         val results = mutableListOf<Boolean>()
         when (profile) {
             Profile.PERFORMANCE -> {
-                results += writeSysfs(CPU0_GOV_PATH, "performance")
-                results += writeSysfs(CPU4_GOV_PATH, "performance")
-                results += writeSysfs(CPU0_MAX_FREQ_PATH, "2210000")
-                results += writeSysfs(CPU4_MAX_FREQ_PATH, "2210000")
-                results += writeSysfs(GPU_GOVERNOR_PATH, "Static")
-                results += writeSysfs(GPU_MAX_FREQ_PATH, "1196")
+                results += writeSysfsVerified(CPU0_GOV_PATH, "performance")
+                results += writeSysfsVerified(CPU4_GOV_PATH, "performance")
+                results += writeSysfsVerified(CPU0_MAX_FREQ_PATH, nearestFreq(cpu0Freqs, 2210000))
+                results += writeSysfsVerified(CPU4_MAX_FREQ_PATH, nearestFreq(cpu4Freqs, 2210000))
+                results += writeSysfsVerified(GPU_GOVERNOR_PATH, "Static")
+                results += writeSysfsVerified(GPU_MAX_FREQ_PATH, "1196")
             }
             Profile.BALANCED -> {
-                results += writeSysfs(CPU0_GOV_PATH, "schedutil")
-                results += writeSysfs(CPU4_GOV_PATH, "schedutil")
-                results += writeSysfs(CPU0_MAX_FREQ_PATH, defaultCpu0MaxFreq)
-                results += writeSysfs(CPU4_MAX_FREQ_PATH, "2106000")
-                results += writeSysfs(GPU_GOVERNOR_PATH, defaultGpuGovernor)
-                results += writeSysfs(GPU_MAX_FREQ_PATH, "1001")
+                results += writeSysfsVerified(CPU0_GOV_PATH, "schedutil")
+                results += writeSysfsVerified(CPU4_GOV_PATH, "schedutil")
+                results += writeSysfsVerified(CPU0_MAX_FREQ_PATH, defaultCpu0MaxFreq)
+                // 2106000 là mốc "giữa" chủ ý (nhanh hơn mặc định, thấp hơn hẳn mức OC full
+                // performance) — nhưng có thể KHÔNG phải bước tần số hợp lệ của chip, nên
+                // luôn khớp về bước thật gần nhất trước khi ghi.
+                results += writeSysfsVerified(CPU4_MAX_FREQ_PATH, nearestFreq(cpu4Freqs, 2106000))
+                results += writeSysfsVerified(GPU_GOVERNOR_PATH, defaultGpuGovernor)
+                results += writeSysfsVerified(GPU_MAX_FREQ_PATH, "1001")
             }
             Profile.BATTERY_SAVER -> {
-                results += writeSysfs(CPU0_GOV_PATH, "powersave")
-                results += writeSysfs(CPU4_GOV_PATH, "powersave")
-                results += writeSysfs(CPU0_MAX_FREQ_PATH, defaultCpu0MaxFreq)
-                results += writeSysfs(CPU4_MAX_FREQ_PATH, defaultCpu4MaxFreq)
-                results += writeSysfs(GPU_GOVERNOR_PATH, defaultGpuGovernor)
-                results += writeSysfs(GPU_MAX_FREQ_PATH, defaultGpuMaxFreq)
+                results += writeSysfsVerified(CPU0_GOV_PATH, "powersave")
+                results += writeSysfsVerified(CPU4_GOV_PATH, "powersave")
+                results += writeSysfsVerified(CPU0_MAX_FREQ_PATH, defaultCpu0MaxFreq)
+                results += writeSysfsVerified(CPU4_MAX_FREQ_PATH, defaultCpu4MaxFreq)
+                results += writeSysfsVerified(GPU_GOVERNOR_PATH, defaultGpuGovernor)
+                results += writeSysfsVerified(GPU_MAX_FREQ_PATH, defaultGpuMaxFreq)
             }
         }
         return results.all { it }
@@ -159,14 +170,28 @@ object PerfProfileManager {
 
     fun restoreDefault(): Boolean {
         val results = listOf(
-            writeSysfs(CPU0_GOV_PATH, defaultGovernor),
-            writeSysfs(CPU4_GOV_PATH, defaultGovernor),
-            writeSysfs(CPU0_MAX_FREQ_PATH, defaultCpu0MaxFreq),
-            writeSysfs(CPU4_MAX_FREQ_PATH, defaultCpu4MaxFreq),
-            writeSysfs(GPU_GOVERNOR_PATH, defaultGpuGovernor),
-            writeSysfs(GPU_MAX_FREQ_PATH, defaultGpuMaxFreq)
+            writeSysfsVerified(CPU0_GOV_PATH, defaultGovernor),
+            writeSysfsVerified(CPU4_GOV_PATH, defaultGovernor),
+            writeSysfsVerified(CPU0_MAX_FREQ_PATH, defaultCpu0MaxFreq),
+            writeSysfsVerified(CPU4_MAX_FREQ_PATH, defaultCpu4MaxFreq),
+            writeSysfsVerified(GPU_GOVERNOR_PATH, defaultGpuGovernor),
+            writeSysfsVerified(GPU_MAX_FREQ_PATH, defaultGpuMaxFreq)
         )
         return results.all { it }
+    }
+
+    /** Đọc bảng tần số CPU hợp lệ thật của policy này (rỗng nếu đọc không được). */
+    private fun availableFreqs(scalingMaxFreqPath: String): List<Long> {
+        val availPath = scalingMaxFreqPath.replace("scaling_max_freq", "scaling_available_frequencies")
+        val raw = readSysfs(availPath) ?: return emptyList()
+        return raw.trim().split(Regex("\\s+")).mapNotNull { it.toLongOrNull() }
+    }
+
+    /** Khớp target về đúng bước tần số gần nhất có thật trong danh sách; nếu không đọc được
+     *  danh sách (thiết bị/kernel không hỗ trợ liệt kê) thì đành dùng nguyên target. */
+    private fun nearestFreq(available: List<Long>, target: Long): String {
+        if (available.isEmpty()) return target.toString()
+        return (available.minByOrNull { kotlin.math.abs(it - target) } ?: target).toString()
     }
 
     /**
@@ -184,6 +209,31 @@ object PerfProfileManager {
     private fun writeSysfs(path: String, value: String): Boolean {
         val result = Shell.cmd("echo $value > $path").exec()
         return result.isSuccess
+    }
+
+    /**
+     * Ghi sysfs RỒI ĐỌC LẠI để xác nhận giá trị đã thực sự được kernel áp dụng — không chỉ
+     * tin vào exit code của "echo". Đây là cách duy nhất biết chắc chế độ hiệu năng có tác
+     * động phần cứng thật hay chỉ đổi UI mà không đổi gì bên dưới.
+     *
+     * Với giá trị dạng SỐ (tần số): chấp nhận sai lệch nhỏ (≤5%) vì một số kernel làm tròn
+     * xuống bước hợp lệ gần nhất thay vì áp đúng số tuyệt đối — vẫn coi là áp dụng thành công.
+     * Với giá trị dạng CHỮ (governor: "performance", "powersave"...): bắt buộc khớp chính xác.
+     */
+    private fun writeSysfsVerified(path: String, value: String): Boolean {
+        val writeResult = Shell.cmd("echo $value > $path").exec()
+        if (!writeResult.isSuccess) return false
+
+        val readBack = readSysfs(path) ?: return false
+        val targetNum = value.toLongOrNull()
+        val readNum = readBack.toLongOrNull()
+        return if (targetNum != null && readNum != null) {
+            val diff = kotlin.math.abs(targetNum - readNum)
+            val tolerance = (targetNum / 20).coerceAtLeast(1) // ~5%, tối thiểu 1 để tránh chia hết về 0
+            diff <= tolerance
+        } else {
+            readBack.trim().equals(value.trim(), ignoreCase = true)
+        }
     }
 
     private fun readSysfs(path: String): String? {

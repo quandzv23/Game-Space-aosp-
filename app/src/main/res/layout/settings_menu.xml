@@ -46,49 +46,6 @@
 
         </LinearLayout>
 
-        <!-- Nền giao diện chính -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:paddingBottom="14dp"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Nền giao diện"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/btn_change_app_background"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/panel_row_bg"
-                android:paddingHorizontal="10dp"
-                android:paddingVertical="6dp"
-                android:text="Đổi nền"
-                android:textColor="@color/accent_cyan"
-                android:textSize="10sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/btn_reset_app_background"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:background="@drawable/panel_row_bg"
-                android:paddingHorizontal="10dp"
-                android:paddingVertical="6dp"
-                android:text="Mặc định"
-                android:textColor="@color/accent_amber"
-                android:textSize="10sp"
-                android:textStyle="bold" />
-
-        </LinearLayout>
-
         <!-- Video mở app -->
         <LinearLayout
             android:layout_width="match_parent"
