@@ -194,6 +194,17 @@ class MainActivity : AppCompatActivity() {
         syncIntroVideoCard(menuView)
         refreshVideoThumbRow(thumbRow, rotateBtn)
 
+        // Tỉ lệ khuyến nghị để crop video trước khi thêm — tính TRỰC TIẾP từ kích
+        // thước màn hình thật lúc chạy (không hardcode số của riêng máy nào), nên đúng
+        // với mọi máy cài app này, không chỉ A21s.
+        val dmHint = resources.displayMetrics
+        val w = dmHint.widthPixels
+        val h = dmHint.heightPixels
+        fun gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
+        val g = gcd(w, h)
+        menuView.findViewById<TextView>(R.id.intro_video_ratio_hint).text =
+            "Tỉ lệ khuyến nghị để không viền/không cắt: ${w}×${h} (${w / g}:${h / g})"
+
         // Trạng thái root
         val rootIcon = menuView.findViewById<TextView>(R.id.root_status_icon)
         val rootTitle = menuView.findViewById<TextView>(R.id.root_status_title)
@@ -334,6 +345,44 @@ class MainActivity : AppCompatActivity() {
         val history = SettingsStore.getIntroVideoHistory(this)
         val enabled = SettingsStore.isIntroVideoEnabled(this)
         val activeUri = if (enabled) SettingsStore.getIntroVideoUri(this) else null
+        val dp = resources.displayMetrics.density
+
+        // Ô "Animation gốc" — luôn đứng ngay sau "+", bấm để quay lại animation mặc định
+        // (logo bụp + sóng xung) bất cứ lúc nào mà không mất video đã chọn.
+        val gocTile = android.widget.FrameLayout(this).apply {
+            layoutParams = android.widget.LinearLayout.LayoutParams((72 * dp).toInt(), (72 * dp).toInt()).apply {
+                marginEnd = (8 * dp).toInt()
+            }
+            setBackgroundResource(R.drawable.tile_bg_inactive)
+        }
+        val gocLabel = TextView(this).apply {
+            layoutParams = android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            gravity = android.view.Gravity.CENTER
+            text = "🎬\nGốc"
+            textSize = 10f
+            setTextColor(resources.getColor(R.color.text_secondary, theme))
+        }
+        gocTile.addView(gocLabel)
+        if (!enabled) {
+            val border = android.view.View(this).apply {
+                layoutParams = android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                )
+                setBackgroundResource(R.drawable.video_thumb_selected_border)
+            }
+            gocTile.addView(border)
+        }
+        gocTile.setOnClickListener {
+            SettingsStore.setIntroVideoEnabled(this, false)
+            syncIntroVideoCard(settingsMenuView)
+            refreshVideoThumbRow(row, rotateBtn)
+            Toast.makeText(this, "Đã chuyển về animation gốc", Toast.LENGTH_SHORT).show()
+        }
+        row.addView(gocTile)
 
         for ((uri, rotation) in history) {
             val tile = layoutInflater.inflate(R.layout.item_video_thumb, row, false)
@@ -451,6 +500,11 @@ class MainActivity : AppCompatActivity() {
         val playerView = findViewById<PlayerView>(R.id.open_intro_video)
         playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
+        // Ẩn hẳn thanh trạng thái lúc phát video mở app -> video được dùng TOÀN BỘ diện
+        // tích màn hình thật, không bị status bar ăn mất 1 dải phía trên (nguyên nhân
+        // gây lệch tỉ lệ / dư viền dù video đã đúng tỉ lệ máy).
+        hideSystemBarsForVideo()
+
         // Góc xoay thủ công (nút "Xoay video") — dùng cho video có nội dung nghiêng
         // sẵn trong file, không có cờ rotation để tự phát hiện được (như video F1 kiểu meme).
         val manualRotation = SettingsStore.getIntroVideoRotation(this)
@@ -493,15 +547,33 @@ class MainActivity : AppCompatActivity() {
             player.prepare()
             true
         } catch (e: Exception) {
+            restoreSystemBars()
             playerView.visibility = android.view.View.GONE
             false
         }
+    }
+
+    /** Ẩn thanh trạng thái/điều hướng tạm thời (chỉ trong lúc phát video mở app). */
+    private fun hideSystemBarsForVideo() {
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        val controller = androidx.core.view.WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior =
+            androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
+
+    /** Trả lại thanh trạng thái/điều hướng bình thường sau khi video phát xong. */
+    private fun restoreSystemBars() {
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, true)
+        val controller = androidx.core.view.WindowInsetsControllerCompat(window, window.decorView)
+        controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
     }
 
     private fun finishIntroVideo(overlay: android.view.View, playerView: PlayerView, player: ExoPlayer) {
         playerView.visibility = android.view.View.GONE
         player.release()
         if (introPlayer === player) introPlayer = null
+        restoreSystemBars()
         revealRealUi(overlay)
     }
 

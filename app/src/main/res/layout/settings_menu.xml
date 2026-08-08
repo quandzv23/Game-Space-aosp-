@@ -101,11 +101,20 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
+                android:layout_marginBottom="4dp"
                 android:text="Chọn hoạt ảnh"
                 android:textColor="@color/text_secondary"
                 android:textSize="9sp"
                 android:letterSpacing="0.1" />
+
+            <TextView
+                android:id="@+id/intro_video_ratio_hint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text=""
+                android:textColor="@color/accent_cyan"
+                android:textSize="8sp" />
 
             <HorizontalScrollView
                 android:layout_width="match_parent"

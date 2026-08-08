@@ -162,8 +162,9 @@ class OverlayBubbleService : Service() {
                             tabView?.let { tv -> windowManager.updateViewLayout(tv, it) }
                         }
                     } else if (horizontalDrag) {
-                        // Kéo ngang: panel VÀ thanh vuốt cùng trượt theo tay (thanh vuốt luôn
-                        // bám sát mép phải của panel, giống tay cầm gắn liền cửa kéo thật)
+                        // Kéo ngang: chỉ panel trượt theo tay, thanh vuốt đứng yên tại vị
+                        // trí nghỉ của nó (không bám theo panel nữa — trước đây làm vậy
+                        // khiến thanh vuốt bị "thụt" về sát mép mỗi khi mở/đóng panel).
                         val hiddenX = -panelWidthPx
                         val openX = 0
                         var newX = (hiddenX + dx).toInt()
@@ -172,10 +173,6 @@ class OverlayBubbleService : Service() {
                         panelParams?.let {
                             it.x = newX
                             panelView?.let { pv -> windowManager.updateViewLayout(pv, it) }
-                        }
-                        tabParams?.let {
-                            it.x = newX
-                            tabView?.let { tv -> windowManager.updateViewLayout(tv, it) }
                         }
                     }
                     true
@@ -339,10 +336,8 @@ class OverlayBubbleService : Service() {
                 val x = it.animatedValue as Int
                 params.x = x
                 try { windowManager.updateViewLayout(pv, params) } catch (e: Exception) { }
-                tabParams?.let { tp ->
-                    tp.x = x
-                    tabView?.let { tv -> try { windowManager.updateViewLayout(tv, tp) } catch (e: Exception) { } }
-                }
+                // Thanh vuốt KHÔNG di chuyển theo panel nữa — nó đứng yên tại vị trí nghỉ
+                // (resetTabToEdge) trong suốt lúc mở/đóng, tránh bị "thụt" về sát mép.
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
