@@ -745,7 +745,11 @@ class MainActivity : AppCompatActivity() {
         ) { app, checked ->
             if (!checked) {
                 GameListStore.removeGame(this, app.packageName)
-                refreshBothLists()
+                // Dời việc dựng lại danh sách sang chu kỳ tiếp theo của looper, SAU KHI
+                // sự kiện chạm hiện tại (bấm switch) đã xử lý xong hoàn toàn — tránh
+                // RecyclerView tái sử dụng/đổi view NGAY giữa lúc đang chạm, dễ gây bấm
+                // nhầm ô bên cạnh do view đó bất ngờ đổi sang app khác.
+                dialogView.post { refreshBothLists() }
             }
         }
         availableAdapter = AppToggleAdapter(
@@ -756,7 +760,7 @@ class MainActivity : AppCompatActivity() {
             if (checked) {
                 GameListStore.addGame(this, app.packageName)
                 if (selectedGame == null) selectGame(app.packageName)
-                refreshBothLists()
+                dialogView.post { refreshBothLists() }
             }
         }
         addedList.adapter = addedAdapter

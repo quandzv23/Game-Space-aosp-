@@ -18,10 +18,15 @@
             android:id="@+id/btn_back_game_manager"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:minWidth="44dp"
+            android:minHeight="44dp"
+            android:gravity="center"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
             android:text="←"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
-            android:paddingEnd="12dp" />
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="10dp" />
 
         <TextView
             android:layout_width="0dp"
