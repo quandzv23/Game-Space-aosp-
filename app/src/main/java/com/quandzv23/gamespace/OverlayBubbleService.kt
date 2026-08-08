@@ -479,6 +479,7 @@ class OverlayBubbleService : Service() {
         panelStatsHandler = Handler(Looper.getMainLooper())
         val cpuText = panel.findViewById<TextView>(R.id.cpu_usage_text)
         val gpuText = panel.findViewById<TextView>(R.id.gpu_usage_text)
+        val ramText = panel.findViewById<TextView>(R.id.ram_free_text)
         val timeText = panel.findViewById<TextView>(R.id.header_time)
         val batteryText = panel.findViewById<TextView>(R.id.header_battery)
 
@@ -495,6 +496,18 @@ class OverlayBubbleService : Service() {
                     val level = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
                     batteryText.text = "$level%"
                 } catch (e: Exception) { }
+
+                // RAM còn trống — đọc trực tiếp qua ActivityManager, không cần root, không
+                // cần chạy nền vì đây là 1 lệnh hệ thống nhẹ (không phải đọc file /proc chậm).
+                try {
+                    val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+                    val memInfo = android.app.ActivityManager.MemoryInfo()
+                    am.getMemoryInfo(memInfo)
+                    val freeGb = memInfo.availMem / 1024.0 / 1024.0 / 1024.0
+                    ramText.text = String.format("%.1fGB", freeGb)
+                } catch (e: Exception) {
+                    ramText.text = "--"
+                }
 
                 thread {
                     val cpuPercent = PerfProfileManager.readCpuUsagePercent()

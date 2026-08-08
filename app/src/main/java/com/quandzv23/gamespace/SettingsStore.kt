@@ -160,4 +160,15 @@ object SettingsStore {
         }
         saveIntroVideoHistory(context, current.take(HISTORY_MAX))
     }
+
+    /** Ảnh nền tuỳ chỉnh cho giao diện chính (null = dùng màu nền mặc định). */
+    private const val KEY_APP_BACKGROUND_URI = "app_background_uri"
+
+    fun getAppBackgroundUri(context: Context): String? =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_APP_BACKGROUND_URI, null)
+
+    fun setAppBackgroundUri(context: Context, uri: String?) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_APP_BACKGROUND_URI, uri).apply()
+    }
 }

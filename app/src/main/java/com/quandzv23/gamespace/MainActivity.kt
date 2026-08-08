@@ -70,6 +70,18 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Đã đổi video mở app", Toast.LENGTH_SHORT).show()
         }
 
+    // Chọn ảnh nền tuỳ chỉnh cho giao diện chính (khác với ảnh nền/video mở app).
+    private val pickBackgroundLauncher =
+        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            try {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (e: SecurityException) { }
+            SettingsStore.setAppBackgroundUri(this, uri.toString())
+            applyAppBackground()
+            Toast.makeText(this, "Đã đổi nền giao diện", Toast.LENGTH_SHORT).show()
+        }
+
     private val statsHandler = Handler(Looper.getMainLooper())
     private var statsRunning = false
     private val statsRunnable = object : Runnable {
@@ -92,6 +104,7 @@ class MainActivity : AppCompatActivity() {
             playEntranceAnimation()
         }
         ensurePermissions()
+        applyAppBackground()
 
         val listView = findViewById<RecyclerView>(R.id.game_list)
         listView.layoutManager = LinearLayoutManager(this)
@@ -163,6 +176,18 @@ class MainActivity : AppCompatActivity() {
             } else {
                 stopService(Intent(this, GameWatcherService::class.java))
             }
+        }
+
+        // Nền giao diện chính
+        menuView.findViewById<TextView>(R.id.btn_change_app_background).setOnClickListener {
+            pickBackgroundLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+            )
+        }
+        menuView.findViewById<TextView>(R.id.btn_reset_app_background).setOnClickListener {
+            SettingsStore.setAppBackgroundUri(this, null)
+            applyAppBackground()
+            Toast.makeText(this, "Đã trả về nền mặc định", Toast.LENGTH_SHORT).show()
         }
 
         // Video mở app
@@ -243,6 +268,26 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         introPlayer?.release()
         introPlayer = null
+    }
+
+    /** Hiện ảnh nền tuỳ chỉnh (nếu đã chọn) lên toàn giao diện chính, hoặc ẩn đi để
+     *  dùng lại màu nền mặc định nếu chưa chọn/đã reset. */
+    private fun applyAppBackground() {
+        val bgImage = findViewById<ImageView>(R.id.app_background_image)
+        val uriString = SettingsStore.getAppBackgroundUri(this)
+        if (uriString == null) {
+            bgImage.visibility = android.view.View.GONE
+            bgImage.setImageDrawable(null)
+            return
+        }
+        try {
+            bgImage.setImageURI(Uri.parse(uriString))
+            bgImage.visibility = android.view.View.VISIBLE
+        } catch (e: Exception) {
+            // URI không đọc được nữa (file bị xoá, mất quyền...) -> rơi về nền mặc định
+            bgImage.visibility = android.view.View.GONE
+            SettingsStore.setAppBackgroundUri(this, null)
+        }
     }
 
     /** Đưa 1 game lên khung showcase trung tâm. */

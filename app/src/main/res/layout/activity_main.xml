@@ -6,6 +6,17 @@
     android:layout_height="match_parent"
     android:background="@color/bg_deep">
 
+    <!-- Nền giao diện tuỳ chỉnh — ảnh do người dùng chọn, làm mờ nhẹ để chữ vẫn đọc
+         được rõ. Ẩn (gone) nếu chưa chọn ảnh nào, lúc đó dùng màu nền mặc định phía trên. -->
+    <ImageView
+        android:id="@+id/app_background_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0.35"
+        android:visibility="gone"
+        android:contentDescription="background" />
+
     <LinearLayout
         android:id="@+id/main_content"
         android:layout_width="match_parent"
